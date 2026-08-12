@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: healthverse-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - healthverse-net
+
+  redis:
+    image: redis:alpine
+    container_name: healthverse-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - healthverse-net
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: healthverse-ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    networks:
+      - healthverse-net
+    depends_on:
+      - redis
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: healthverse-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/appointy
+      - PORT=8080
+      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_URL=redis://redis:6379
+      - AI_SERVICE_URL=http://ai-service:8000
+      - CLOUDINARY_NAME=${CLOUDINARY_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_SECRET_KEY=${CLOUDINARY_SECRET_KEY}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+    networks:
+      - healthverse-net
+    depends_on:
+      - mongodb
+      - redis
+      - ai-service
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: healthverse-patient-portal
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_BACKEND_URL=http://localhost:8080
+      - VITE_ADMIN_URL=http://localhost:5180
+    networks:
+      - healthverse-net
+    depends_on:
+      - backend
+
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+    container_name: healthverse-provider-portal
+    ports:
+      - "5180:5180"
+    environment:
+      - VITE_BACKEND_URL=http://localhost:8080
+      - VITE_FRONTEND_URL=http://localhost:5173
+    networks:
+      - healthverse-net
+    depends_on:
+      - backend
+
+networks:
+  healthverse-net:
+    driver: bridge
+
+volumes:
+  mongo-data:
+    driver: local
