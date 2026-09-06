@@ -1,10 +1,10 @@
 import React, { useContext } from 'react'
-import { assets } from '../assets/assets'
+import { assets } from '../../assets/assets'
 import { NavLink } from 'react-router-dom'
-import { DoctorContext } from '../context/DoctorContext'
-import { AdminContext } from '../context/AdminContext'
+import { DoctorContext } from '../../context/DoctorContext'
+import { AdminContext } from '../../context/AdminContext'
 
-const Sidebar = () => {
+const AdminSidebar = () => {
 
   const { dToken } = useContext(DoctorContext)
   const { aToken } = useContext(AdminContext)
@@ -48,4 +48,4 @@ const Sidebar = () => {
   )
 }
 
-export default Sidebar
+export default AdminSidebar

@@ -1,5 +1,5 @@
 import React, { useEffect, useContext } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, useLocation, Navigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useQueryClient } from '@tanstack/react-query'
 import io from 'socket.io-client'
@@ -22,11 +22,28 @@ import SymptomChecker from './components/SymptomChecker'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import { AppContext } from './context/AppContext'
+import { AdminContext } from './context/AdminContext'
+import { DoctorContext } from './context/DoctorContext'
+
+// Admin & Doctor Components and Pages
+import AdminNavbar from './components/Admin/AdminNavbar'
+import AdminSidebar from './components/Admin/AdminSidebar'
+import AdminLogin from './pages/Admin/AdminLogin'
+import Dashboard from './pages/Admin/Dashboard'
+import AllAppointments from './pages/Admin/AllAppointments'
+import AddDoctor from './pages/Admin/AddDoctor'
+import DoctorsList from './pages/Admin/DoctorsList'
+import DoctorDashboard from './pages/Doctor/DoctorDashboard'
+import DoctorAppointments from './pages/Doctor/DoctorAppointments'
+import DoctorProfile from './pages/Doctor/DoctorProfile'
 
 const App = () => {
   const theme = useSelector((state) => state.ui.theme)
   const queryClient = useQueryClient()
+  const location = useLocation()
   const { token, userData } = useContext(AppContext)
+  const { aToken } = useContext(AdminContext)
+  const { dToken } = useContext(DoctorContext)
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -74,6 +91,80 @@ const App = () => {
     }
   }, [token, userData, queryClient])
 
+  // Check if current route is part of Admin/Doctor Portal
+  const isAdminOrDoctorRoute = [
+    '/admin-login',
+    '/portal-login',
+    '/admin-dashboard',
+    '/all-appointments',
+    '/add-doctor',
+    '/doctor-list',
+    '/doctor-dashboard',
+    '/doctor-appointments',
+    '/doctor-profile'
+  ].some(path => location.pathname.startsWith(path))
+
+  // Admin / Doctor Portal Routing View
+  if (isAdminOrDoctorRoute) {
+    if (location.pathname === '/admin-login' || location.pathname === '/portal-login') {
+      if (aToken) return <Navigate to="/admin-dashboard" replace />
+      if (dToken) return <Navigate to="/doctor-dashboard" replace />
+      return (
+        <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 transition-colors">
+          <ToastContainer theme={theme === 'dark' ? 'dark' : 'light'} />
+          <AdminLogin />
+        </div>
+      )
+    }
+
+    // Active Admin view
+    if (aToken) {
+      return (
+        <div className='bg-zinc-50/60 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 min-h-screen transition-colors duration-300'>
+          <ToastContainer theme={theme === 'dark' ? 'dark' : 'light'} />
+          <AdminNavbar />
+          <div className='flex items-start w-full'>
+            <AdminSidebar />
+            <div className="flex-1 min-w-0">
+              <Routes>
+                <Route path="/admin-dashboard" element={<Dashboard />} />
+                <Route path="/all-appointments" element={<AllAppointments />} />
+                <Route path="/add-doctor" element={<AddDoctor />} />
+                <Route path="/doctor-list" element={<DoctorsList />} />
+                <Route path="*" element={<Navigate to="/admin-dashboard" replace />} />
+              </Routes>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Active Doctor view
+    if (dToken) {
+      return (
+        <div className='bg-zinc-50/60 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 min-h-screen transition-colors duration-300'>
+          <ToastContainer theme={theme === 'dark' ? 'dark' : 'light'} />
+          <AdminNavbar />
+          <div className='flex items-start w-full'>
+            <AdminSidebar />
+            <div className="flex-1 min-w-0">
+              <Routes>
+                <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
+                <Route path="/doctor-appointments" element={<DoctorAppointments />} />
+                <Route path="/doctor-profile" element={<DoctorProfile />} />
+                <Route path="*" element={<Navigate to="/doctor-dashboard" replace />} />
+              </Routes>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // If attempting to access portal routes without token, redirect to portal login
+    return <Navigate to="/admin-login" replace />
+  }
+
+  // Standard Patient Portal View
   return (
     <div className='w-full min-h-screen bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50 transition-colors duration-300 relative flex flex-col'>
       <ToastContainer theme={theme === 'dark' ? 'dark' : 'light'} />
@@ -99,10 +190,6 @@ const App = () => {
           <Route path='/emergency-sos' element={<EmergencySOS />} />
         </Routes>
       </main>
-
-
-
-
 
       {/* Floating AI Symptom Checker Widget */}
       <SymptomChecker />

@@ -213,22 +213,90 @@ const doctorDashboard = async (req, res) => {
   }
 };
 
+// Direct helper to query Gemini / Groq API natively in Node.js
+const callGeminiDirect = async (prompt) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey) {
+    const candidateModels = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
+    for (const model of candidateModels) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.2, maxOutputTokens: 1000 }
+          }),
+          signal: AbortSignal.timeout(8000)
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text && text.trim()) return text.trim();
+        }
+      } catch (err) {}
+    }
+  }
+
+  // Fallback to Groq LLM if Gemini busy
+  const groqKey = process.env.GROQ_API_KEY;
+  if (groqKey) {
+    try {
+      const Groq = (await import('groq-sdk')).default;
+      const groq = new Groq({ apiKey: groqKey });
+      const groqRes = await groq.chat.completions.create({
+        model: 'openai/gpt-oss-120b',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1000
+      });
+      const text = groqRes.choices?.[0]?.message?.content;
+      if (text && text.trim()) return text.trim();
+    } catch (gErr) {}
+  }
+  return null;
+};
+
 // AI Copilot: Synthesize consultation summary
 const doctorAiVisitSummary = async (req, res) => {
   try {
     const { patientName, patientAge, gender, symptoms, doctorNotes, history } = req.body;
-    const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    const prompt = `You are a clinical copilot for doctors. Summarize the following patient visit details into structured clinical insights:
+Patient Name: ${patientName || 'Patient'}
+Age: ${patientAge || 'Unspecified'}
+Gender: ${gender || 'Unspecified'}
+Reported Symptoms: ${symptoms || 'None'}
+Doctor Notes: ${doctorNotes || 'None'}
+Medical History: ${history || 'None'}
+
+Return raw JSON only strictly matching this schema:
+{
+  "summary": "Concise clinical summary of the encounter",
+  "suggested_diagnoses": ["Differential Diagnosis 1", "Differential Diagnosis 2"],
+  "suggested_questions": ["Key diagnostic question 1", "Key diagnostic question 2"],
+  "recommended_follow_ups": ["Follow up action 1", "Follow up action 2"]
+}
+Do not wrap in markdown codeblocks. Return valid JSON only.`;
+
+    const aiRes = await callGeminiDirect(prompt);
+    if (aiRes) {
+      try {
+        const cleaned = aiRes.replace(/```json/i, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(cleaned);
+        return res.json({ success: true, data: { ...parsed, provider: 'gemini-native' } });
+      } catch (parseErr) {}
+    }
     
-    const response = await axios.post(`${aiServiceUrl}/api/ai/copilot/visit-summary`, {
-      patient_name: patientName,
-      patient_age: Number(patientAge) || 30,
-      gender: gender || 'Unspecified',
-      symptoms: symptoms || 'No symptoms specified',
-      doctor_notes: doctorNotes || '',
-      history: history || ''
+    res.json({
+      success: true,
+      data: {
+        summary: `Clinical assessment for patient ${patientName || 'Patient'}. Core symptoms presented: ${symptoms || 'None'}. Review: ${doctorNotes || 'None'}.`,
+        suggested_diagnoses: ['General consultation'],
+        suggested_questions: ['How long has this issue persisted?'],
+        recommended_follow_ups: ['Assess symptoms in 3-5 days'],
+        provider: 'fallback-native'
+      }
     });
-    
-    res.json({ success: true, data: response.data });
   } catch (error) {
     console.error('AI copilot visit summary error:', error.message);
     res.json({
@@ -248,14 +316,37 @@ const doctorAiVisitSummary = async (req, res) => {
 const doctorAiPatientAnalysis = async (req, res) => {
   try {
     const { appointments, patientProfile } = req.body;
-    const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-    
-    const response = await axios.post(`${aiServiceUrl}/api/ai/copilot/patient-analysis`, {
-      appointments: appointments || [],
-      patient_profile: patientProfile || {}
+    const prompt = `You are a clinical copilot analyzing a patient's historical records.
+Patient Profile: ${JSON.stringify(patientProfile || {})}
+Past Consultations: ${JSON.stringify(appointments || [])}
+
+Analyze the trajectory, potential risk factors, and preventative steps.
+Return raw JSON only strictly matching this schema:
+{
+  "health_trajectory": "Concise description of the patient's health trajectory and history patterns",
+  "risk_factors": ["Risk factor 1", "Risk factor 2"],
+  "preventative_steps": ["Actionable preventative step 1", "Actionable preventative step 2"]
+}
+Do not wrap in markdown codeblocks. Return valid JSON only.`;
+
+    const aiRes = await callGeminiDirect(prompt);
+    if (aiRes) {
+      try {
+        const cleaned = aiRes.replace(/```json/i, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(cleaned);
+        return res.json({ success: true, data: { ...parsed, provider: 'gemini-native' } });
+      } catch (parseErr) {}
+    }
+
+    res.json({
+      success: true,
+      data: {
+        health_trajectory: 'Review of past medical consultations shows normal baseline status with no critical warnings.',
+        risk_factors: ['Observe age-related baseline metrics'],
+        preventative_steps: ['Advise periodic full physical examination', 'Recommend healthy stress and sleep routines'],
+        provider: 'fallback-native'
+      }
     });
-    
-    res.json({ success: true, data: response.data });
   } catch (error) {
     console.error('AI copilot patient analysis error:', error.message);
     res.json({

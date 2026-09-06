@@ -84,16 +84,12 @@ const Navbar = () => {
         </button>
 
         {/* Admin Portal link */}
-        {location.pathname === '/' && (
-          <a
-            href={import.meta.env.VITE_ADMIN_URL || 'http://localhost:5180'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className='border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-xs px-3.5 py-2 rounded-xl transition-all hidden md:flex items-center gap-1.5'
-          >
-            <Shield className="w-3.5 h-3.5" /> Portal
-          </a>
-        )}
+        <button
+          onClick={() => navigate('/admin-login')}
+          className='border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-xs px-3.5 py-2 rounded-xl transition-all hidden md:flex items-center gap-1.5 cursor-pointer'
+        >
+          <Shield className="w-3.5 h-3.5 text-primary" /> Portal
+        </button>
 
         {token && userData ? (
           <div className='relative'>
@@ -226,16 +222,12 @@ const Navbar = () => {
                   </button>
                 )}
 
-                {location.pathname === '/' && (
-                  <a 
-                    href={import.meta.env.VITE_ADMIN_URL || 'http://localhost:5180'} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className='w-full py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all'
-                  >
-                    <Shield className="w-3.5 h-3.5" /> Portal Access
-                  </a>
-                )}
+                <button 
+                  onClick={() => { navigate('/admin-login'); setShowMenu(false); }} 
+                  className='w-full py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer'
+                >
+                  <Shield className="w-3.5 h-3.5 text-primary" /> Portal Access
+                </button>
               </div>
             </div>
           </>

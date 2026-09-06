@@ -1,13 +1,13 @@
 import React, { useContext } from 'react'
-import { assets } from '../assets/assets'
-import { DoctorContext } from '../context/DoctorContext'
-import { AdminContext } from '../context/AdminContext'
+import { assets } from '../../assets/assets'
+import { DoctorContext } from '../../context/DoctorContext'
+import { AdminContext } from '../../context/AdminContext'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
-import { toggleTheme } from '../store/uiSlice'
+import { toggleTheme } from '../../store/uiSlice'
 import { Sun, Moon, LogOut, ArrowLeftRight } from 'lucide-react'
 
-const Navbar = () => {
+const AdminNavbar = () => {
   const { dToken, setDToken } = useContext(DoctorContext)
   const { aToken, setAToken } = useContext(AdminContext)
   const navigate = useNavigate()
@@ -24,7 +24,7 @@ const Navbar = () => {
   }
 
   const goToUserPanel = () => {
-    window.location.href = import.meta.env.VITE_FRONTEND_URL || 'http://localhost:5173'
+    navigate('/')
   }
 
   const isOnDashboard =
@@ -84,4 +84,4 @@ const Navbar = () => {
   )
 }
 
-export default Navbar
+export default AdminNavbar

@@ -1,17 +1,18 @@
 import axios from 'axios'
 import React, { useContext, useState } from 'react'
-import { DoctorContext } from '../context/DoctorContext'
-import { AdminContext } from '../context/AdminContext'
+import { DoctorContext } from '../../context/DoctorContext'
+import { AdminContext } from '../../context/AdminContext'
 import { toast } from 'react-toastify'
+import { useNavigate } from 'react-router-dom'
 
-const Login = () => {
-
+const AdminLogin = () => {
+  const navigate = useNavigate()
   const [state, setState] = useState('Admin')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://healthverse-2.onrender.com'
 
   const { setDToken } = useContext(DoctorContext)
   const { setAToken } = useContext(AdminContext)
@@ -128,4 +129,4 @@ const Login = () => {
   )
 }
 
-export default Login
+export default AdminLogin

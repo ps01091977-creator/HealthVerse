@@ -301,46 +301,57 @@ const verifyRazorpay = async (req, res) => {
     }
 }
 
-// Direct helper to query Gemini API using user key
+// Direct helper to query Gemini / Groq API using user key natively in Node.js
 const callGeminiDirect = async (prompt) => {
-    try {
-        const apiKey = process.env.GEMINI_API_KEY;
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
-        const payload = {
-            contents: [
-                {
-                    parts: [
-                        { text: prompt }
-                    ]
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey) {
+        const candidateModels = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
+        for (const model of candidateModels) {
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: 0.2, maxOutputTokens: 1000 }
+                    }),
+                    signal: AbortSignal.timeout(8000)
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (text && text.trim()) return text.trim();
                 }
-            ]
-        };
-        const response = await axios.post(url, payload);
-        const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        return text || null;
-    } catch (err) {
-        console.error('Direct Gemini call failed:', err.message);
-        return null;
+            } catch (err) {}
+        }
     }
+
+    // Fallback to Groq LLM if Gemini busy
+    const groqKey = process.env.GROQ_API_KEY;
+    if (groqKey) {
+        try {
+            const Groq = (await import('groq-sdk')).default;
+            const groq = new Groq({ apiKey: groqKey });
+            const groqRes = await groq.chat.completions.create({
+                model: 'openai/gpt-oss-120b',
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 1000
+            });
+            const text = groqRes.choices?.[0]?.message?.content;
+            if (text && text.trim()) return text.trim();
+        } catch (gErr) {}
+    }
+    return null;
 }
 
-// API proxy to AI symptom check service
+// Direct native AI symptom check service
 const aiSymptomCheck = async (req, res) => {
     try {
         const { symptoms, patient_info } = req.body;
-        const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
         
-        const response = await axios.post(`${aiServiceUrl}/api/ai/symptom-check`, {
-            symptoms,
-            patient_info
-        });
-        
-        res.json({ success: true, data: response.data });
-    } catch (error) {
-        console.error('AI symptom-check error:', error.message);
-        
-        // Try direct Gemini call fallback
-        const prompt = `You are a clinical assistant. Analyze these symptoms: "${req.body.symptoms}". Patient Info: "${req.body.patient_info || 'None'}".
+        // 1. Direct Gemini / Groq Clinical Analysis
+        const prompt = `You are a clinical assistant. Analyze these symptoms: "${symptoms || req.body.symptoms}". Patient Info: "${patient_info || req.body.patient_info || 'None'}".
         Return raw JSON only, strictly matching this schema:
         {
           "analysis": "A detailed clinical analysis of symptoms.",
@@ -402,24 +413,18 @@ const aiSymptomCheck = async (req, res) => {
     }
 }
 
-// API proxy to AI chatbot
+// Native AI Chatbot endpoint
 const aiChatbot = async (req, res) => {
     try {
         const { message, chat_history } = req.body;
-        const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-        const response = await axios.post(`${aiServiceUrl}/api/ai/chatbot`, { message, chat_history });
-        res.json({ success: true, data: response.data });
-    } catch (error) {
-        console.error('AI chatbot proxy error:', error.message);
         
-        // Try direct Gemini call fallback
-        const prompt = `You are a medical assistant chat companion. User says: "${req.body.message}". Previous History: "${JSON.stringify(req.body.chat_history || [])}".
-        Return a helpful, clinical reply. Keep it concise.
+        const prompt = `You are a medical assistant chat companion. User says: "${message}". Previous History: "${JSON.stringify(chat_history || [])}".
+        Return a helpful, empathetic, clinical reply in the user's language (Hindi or English).
         Return raw JSON only, matching this schema:
         {
           "reply": "Your message reply."
         }
-        Do not wrap in markdown. Return valid JSON only.`;
+        Do not wrap in markdown tags or backticks. Return valid JSON only.`;
 
         const geminiText = await callGeminiDirect(prompt);
         if (geminiText) {
@@ -439,7 +444,7 @@ const aiChatbot = async (req, res) => {
         }
 
         // Smart, dynamic local keyword fallback mapping for professional clinical helper
-        const userMsg = (req.body.message || "").toLowerCase();
+        const userMsg = (message || "").toLowerCase();
         let fallbackReply = "I am here as your HealthVerse clinical assistant to guide you. While I can help you identify the right medical specialties for your symptoms (e.g., Dermatologist, Ophthalmologist, General Physician) and explain general wellness tips, please consult a certified doctor for formal diagnosis and treatment. For critical emergencies, please call emergency services immediately.";
 
         if (userMsg.includes("hello") || userMsg.includes("hi") || userMsg.includes("hey") || userMsg.includes("greeting")) {
@@ -450,7 +455,7 @@ const aiChatbot = async (req, res) => {
             fallbackReply = "For skin concerns, rashes, itching, acne, or allergies, we recommend booking a consultation with a **Dermatologist**. You can easily find and book appointments with leading dermatologists on our platform.";
         } else if (userMsg.includes("heart") || userMsg.includes("chest") || userMsg.includes("cardio") || userMsg.includes("stroke")) {
             fallbackReply = "If you are experiencing chest pain, tightness, or heart palpitations, please consult a **Cardiologist** immediately. *Note: If this is a medical emergency (e.g. signs of a heart attack), please call your local emergency services (like 102 or 911) right away.*";
-        } else if (userMsg.includes("cold") || userMsg.includes("cough") || userMsg.includes("fever") || userMsg.includes("flu") || userMsg.includes("headache") || userMsg.includes("body ache")) {
+        } else if (userMsg.includes("cold") || userMsg.includes("cough") || userMsg.includes("fever") || userMsg.includes("flu") || userMsg.includes("headache") || userMsg.includes("body ache") || userMsg.includes("bukhar")) {
             fallbackReply = "For symptoms like fever, cold, cough, flu, or mild headaches, you should consult a **General Physician**. They can evaluate your symptoms, prescribe necessary medicines, and advise if you need specialized care.";
         } else if (userMsg.includes("stomach") || userMsg.includes("digest") || userMsg.includes("belly") || userMsg.includes("gastro") || userMsg.includes("acid") || userMsg.includes("diarrhea")) {
             fallbackReply = "Stomach aches, indigestion, acid reflux, or other digestive issues are best evaluated by a **Gastroenterologist** or a General Physician. We suggest avoiding heavy or spicy foods and staying hydrated.";
@@ -469,21 +474,18 @@ const aiChatbot = async (req, res) => {
                 provider: "backup-controller-mock"
             }
         });
+    } catch (error) {
+        console.error('AI chatbot error:', error.message);
+        res.json({ success: true, data: { reply: "I am ready to assist your medical queries. Please feel free to describe your symptoms." } });
     }
 }
 
-// API proxy to AI medicine-info
+// Native AI medicine-info endpoint
 const aiMedicineInfo = async (req, res) => {
     try {
         const { medicine_name } = req.body;
-        const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-        const response = await axios.post(`${aiServiceUrl}/api/ai/medicine-info`, { medicine_name });
-        res.json({ success: true, data: response.data });
-    } catch (error) {
-        console.error('AI medicine-info proxy error:', error.message);
-
-        // Try direct Gemini call fallback
-        const prompt = `Provide clinical details for drug/medicine: "${req.body.medicine_name}".
+        
+        const prompt = `Provide clinical details for drug/medicine: "${medicine_name || req.body.medicine_name}".
         Return raw JSON only, matching this schema:
         {
           "description": "Short description of mechanism and uses.",
@@ -491,7 +493,7 @@ const aiMedicineInfo = async (req, res) => {
           "interactions": ["interaction 1", "interaction 2"],
           "typical_dosage": "dosage instructions"
         }
-        Do not wrap in markdown. Return valid JSON only.`;
+        Do not wrap in markdown tags or backticks. Return valid JSON only.`;
 
         const geminiText = await callGeminiDirect(prompt);
         if (geminiText) {
@@ -523,21 +525,18 @@ const aiMedicineInfo = async (req, res) => {
                 provider: "backup-controller-mock"
             }
         });
+    } catch (error) {
+        console.error('AI medicine-info error:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 }
 
-// API proxy to AI diet-nutrition
+// Native AI diet-nutrition endpoint
 const aiDietNutrition = async (req, res) => {
     try {
         const { health_conditions, goals } = req.body;
-        const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-        const response = await axios.post(`${aiServiceUrl}/api/ai/diet-nutrition`, { health_conditions, goals });
-        res.json({ success: true, data: response.data });
-    } catch (error) {
-        console.error('AI diet-nutrition proxy error:', error.message);
-
-        // Try direct Gemini call fallback
-        const prompt = `Provide nutritional guidelines for conditions: "${JSON.stringify(req.body.health_conditions || [])}" and goals: "${req.body.goals || 'None'}".
+        
+        const prompt = `Provide nutritional guidelines for conditions: "${JSON.stringify(health_conditions || req.body.health_conditions || [])}" and goals: "${goals || req.body.goals || 'None'}".
         Return raw JSON only, matching this schema:
         {
           "recommended_foods": ["food 1", "food 2"],
@@ -545,7 +544,7 @@ const aiDietNutrition = async (req, res) => {
           "meal_plan_suggestion": "short meal suggestion text",
           "nutrition_tips": ["tip 1", "tip 2"]
         }
-        Do not wrap in markdown. Return valid JSON only.`;
+        Do not wrap in markdown tags or backticks. Return valid JSON only.`;
 
         const geminiText = await callGeminiDirect(prompt);
         if (geminiText) {
@@ -577,22 +576,18 @@ const aiDietNutrition = async (req, res) => {
                 provider: "backup-controller-mock"
             }
         });
+    } catch (error) {
+        console.error('AI diet-nutrition error:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 }
 
-
-// API proxy to AI report-summary
+// Native AI report-summary endpoint
 const aiReportSummary = async (req, res) => {
     try {
         const { report_text } = req.body;
-        const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-        const response = await axios.post(`${aiServiceUrl}/api/ai/report-summary`, { report_text });
-        res.json({ success: true, data: response.data });
-    } catch (error) {
-        console.error('AI report-summary proxy error:', error.message);
         
-        // Try direct Gemini call fallback
-        const prompt = `You are a clinical assistant. Analyze this lab report text: "${req.body.report_text}".
+        const prompt = `You are a clinical assistant. Analyze this lab report text: "${report_text || req.body.report_text}".
         Return raw JSON only, strictly matching this schema:
         {
           "summary": "Detailed overall clinical summary of the lab report.",
@@ -600,7 +595,7 @@ const aiReportSummary = async (req, res) => {
           "abnormal_values": ["Abnormal value/marker 1", "Abnormal value/marker 2"],
           "recommended_questions": ["Question 1", "Question 2"]
         }
-        Do not wrap in markdown. Return valid JSON only.`;
+        Do not wrap in markdown tags or backticks. Return valid JSON only.`;
 
         const geminiText = await callGeminiDirect(prompt);
         if (geminiText) {
@@ -632,28 +627,25 @@ const aiReportSummary = async (req, res) => {
                 provider: "backup-controller-mock"
             }
         });
+    } catch (error) {
+        console.error('AI report-summary error:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 }
 
-// API proxy to AI follow-up
+// Native AI follow-up endpoint
 const aiFollowUp = async (req, res) => {
     try {
         const { diagnosis, treatment } = req.body;
-        const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-        const response = await axios.post(`${aiServiceUrl}/api/ai/follow-up`, { diagnosis, treatment });
-        res.json({ success: true, data: response.data });
-    } catch (error) {
-        console.error('AI follow-up proxy error:', error.message);
-
-        // Try direct Gemini call fallback
-        const prompt = `Provide clinical follow-up guidelines for diagnosis: "${req.body.diagnosis}" and treatment: "${req.body.treatment}".
+        
+        const prompt = `Provide clinical follow-up guidelines for diagnosis: "${diagnosis || req.body.diagnosis}" and treatment: "${treatment || req.body.treatment}".
         Return raw JSON only, strictly matching this schema:
         {
           "follow_up_weeks": 4,
           "warnings_to_watch": ["Warning 1", "Warning 2"],
           "suggestions": ["Suggestion 1", "Suggestion 2"]
         }
-        Do not wrap in markdown. Return valid JSON only.`;
+        Do not wrap in markdown tags or backticks. Return valid JSON only.`;
 
         const geminiText = await callGeminiDirect(prompt);
         if (geminiText) {
@@ -678,6 +670,16 @@ const aiFollowUp = async (req, res) => {
             success: true,
             data: {
                 follow_up_weeks: 4,
+                warnings_to_watch: ["Sudden escalation of symptoms", "Persistent high temperature"],
+                suggestions: ["Schedule re-check if symptoms persist past estimated duration", "Complete full course of care"],
+                provider: "backup-controller-mock"
+            }
+        });
+    } catch (error) {
+        console.error('AI follow-up error:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
                 warnings_to_watch: ["Dizziness", "Persistent elevated temperature", "Difficulty breathing"],
                 suggestions: ["Observe rest guidelines.", "Schedule doctor visit if symptoms recur."],
                 provider: "backup-controller-mock"
