@@ -112,6 +112,7 @@ export const transcribeAudioWithGroqWhisper = async ({ file, audioBuffer, audioB
       /^mbc.*$/i,
       /^the\s+end[\.\!\?\s]*$/i,
       /^\.+$/,
+      /^(nursing|home|health|services|hospital)\s+(home|health|services|hospital|lelu).*$/i
     ];
 
     for (const model of models) {
@@ -147,10 +148,23 @@ export const transcribeAudioWithGroqWhisper = async ({ file, audioBuffer, audioB
           };
         }
 
-        console.log(`[GroqWhisper] ${model} transcript: "${text}"`);
+        // Clean repeated word loops (e.g., LELU LELU LELU...) and repeated multi-word phrases
+        let cleanedText = text
+          .replace(/\b([A-Za-z0-9_\u0900-\u097F]+)(\s+\1\b){2,}/gi, '$1')
+          .replace(/((?:[\w\u0900-\u097F]+\s+){2,8}[\w\u0900-\u097F]+)(?:\s+\1)+/gi, '$1')
+          .trim();
+
+        if (!cleanedText || cleanedText.length < 2) {
+          return {
+            success: false,
+            message: 'No clear speech detected. Please speak closer to your microphone and try again.',
+          };
+        }
+
+        console.log(`[GroqWhisper] ${model} transcript: "${cleanedText}"`);
         return {
           success: true,
-          text,
+          text: cleanedText,
           model,
           provider: 'groq-whisper',
         };
