@@ -56,7 +56,7 @@ const App = () => {
   // Real-time WebSocket connection
   useEffect(() => {
     if (token && userData && userData._id) {
-      const socketUrl = import.meta.env.VITE_BACKEND_URL || 'https://healthverse-2.onrender.com'
+      const socketUrl = import.meta.env.VITE_BACKEND_URL || 'https://healthverse-1.onrender.com'
       const socket = io(socketUrl)
 
       socket.emit('join_user', userData._id)
