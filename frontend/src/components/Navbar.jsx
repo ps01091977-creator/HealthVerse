@@ -1,4 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { assets } from '../assets/assets'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
@@ -167,19 +168,19 @@ const Navbar = () => {
           <Menu className='w-5 h-5' />
         </button>
 
-        {/* ---- Mobile Menu Drawer (Opaque, High-Z-Index Modal) ---- */}
-        {showMenu && (
-          <div className='md:hidden fixed inset-0 z-[99999]'>
+        {/* ---- Mobile Menu Drawer (Teleported via Portal to body) ---- */}
+        {showMenu && typeof document !== 'undefined' && createPortal(
+          <div className='fixed inset-0 z-[99999999] flex justify-end animate-in fade-in duration-200'>
             {/* Solid Dark Backdrop */}
             <div 
               onClick={() => setShowMenu(false)} 
-              className='fixed inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200'
+              className='fixed inset-0 bg-black/80 backdrop-blur-sm'
             />
 
-            {/* Solid Slide-in Drawer */}
-            <div className='fixed right-0 top-0 bottom-0 w-[85vw] max-w-[340px] bg-[#ffffff] dark:bg-[#0c0d14] text-zinc-900 dark:text-zinc-50 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl p-5 flex flex-col justify-between overflow-y-auto z-[100000] animate-in slide-in-from-right duration-250'>
+            {/* Solid Slide-in Drawer with Full 100dvh Height */}
+            <div className='relative w-[85vw] max-w-[340px] h-[100dvh] bg-[#ffffff] dark:bg-[#0c0d14] text-zinc-900 dark:text-zinc-50 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl p-5 flex flex-col justify-between overflow-y-auto z-10 animate-in slide-in-from-right duration-250'>
               
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {/* Header inside drawer */}
                 <div className='flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800/80'>
                   <div className="flex items-center gap-2">
@@ -274,7 +275,7 @@ const Navbar = () => {
                     <span className="text-[9px] bg-red-500 text-white px-1.5 py-0.5 rounded-md font-bold uppercase">24/7</span>
                   </NavLink>
 
-                  <div className="my-2 border-t border-zinc-100 dark:border-zinc-800" />
+                  <div className="my-1.5 border-t border-zinc-100 dark:border-zinc-800" />
 
                   <NavLink 
                     onClick={() => setShowMenu(false)} 
@@ -319,7 +320,7 @@ const Navbar = () => {
               </div>
 
               {/* Bottom CTAs */}
-              <div className="space-y-2.5 pt-4 border-t border-zinc-100 dark:border-zinc-800 mt-4">
+              <div className="space-y-2.5 pt-4 border-t border-zinc-100 dark:border-zinc-800 mt-3">
                 {token && userData ? (
                   <button 
                     onClick={logout} 
@@ -344,7 +345,8 @@ const Navbar = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </div>
