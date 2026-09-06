@@ -60,7 +60,6 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
   const [latestUserSpoken, setLatestUserSpoken] = useState('');
   const [latestAiSpoken, setLatestAiSpoken] = useState('');
   const [latestActionPayload, setLatestActionPayload] = useState(null);
-  const [silenceCountdown, setSilenceCountdown] = useState(null);
   const [audioVolume, setAudioVolume] = useState(0); // 0 - 100%
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [audioDevices, setAudioDevices] = useState([]);
@@ -88,6 +87,9 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
   // MediaRecorder & Web Audio Refs
   const recordTimerRef = useRef(null);
   const isListeningRef = useRef(false);
+  const isSpeakingRef = useRef(false);
+  const isRecognitionActiveRef = useRef(false);
+  const isStartingRecRef = useRef(false);
   const audioContextRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const analyserRef = useRef(null);
@@ -96,13 +98,19 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
   const audioChunksRef = useRef([]);
   const silenceDetectorTimerRef = useRef(null);
   const recognitionRef = useRef(null);
+  
+  // High-accuracy transcript accumulation refs to prevent stale closures
+  const finalTranscriptRef = useRef('');
+  const interimTranscriptRef = useRef('');
   const liveInterimTextRef = useRef('');
 
-  // Voice Output (TTS) State
+  // Voice Output (TTS) State & Utterance Persistence Ref (Prevents Chrome GC pause bug)
   const [voiceOutputEnabled, setVoiceOutputEnabled] = useState(true);
   const [currentlySpeakingId, setCurrentlySpeakingId] = useState(null);
   const [availableVoices, setAvailableVoices] = useState([]);
   const speechSynthRef = useRef(typeof window !== 'undefined' ? window.speechSynthesis : null);
+  const activeUtteranceRef = useRef(null);
+  const ttsSafetyTimeoutRef = useRef(null);
 
   // Interactive booking confirmation staging
   const [pendingBooking, setPendingBooking] = useState(null);
@@ -173,16 +181,13 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
       .trim();
   };
 
-  // Text to Speech playback
+  // Text to Speech playback with robust Audio-Session Mutex Management
   const speakText = (text, msgId = 'live') => {
     if (!speechSynthRef.current) return;
 
-    try {
-      speechSynthRef.current.cancel();
-      if (speechSynthRef.current.paused) {
-        speechSynthRef.current.resume();
-      }
-    } catch (e) {}
+    // 1. Immediately pause/stop microphone to prevent echo feedback & OS audio focus clash
+    stopListening();
+    stopSpeech();
 
     const cleanSpeech = sanitizeTextForSpeech(text);
     if (!cleanSpeech) return;
@@ -191,6 +196,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
     const speechSentences = cleanSpeech.split('.').filter(s => s.trim().length > 0).slice(0, 4).join('. ') + '.';
 
     const utterance = new SpeechSynthesisUtterance(speechSentences);
+    activeUtteranceRef.current = utterance; // Prevent Chrome garbage collection bug
     utterance.volume = 1.0;
 
     const isHindiText = /[ह-्]/.test(text) || 
@@ -229,40 +235,71 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
       if (engVoice) utterance.voice = engVoice;
     }
 
+    const cleanupTTS = () => {
+      isSpeakingRef.current = false;
+      activeUtteranceRef.current = null;
+      setCurrentlySpeakingId(null);
+      if (ttsSafetyTimeoutRef.current) {
+        clearTimeout(ttsSafetyTimeoutRef.current);
+        ttsSafetyTimeoutRef.current = null;
+      }
+      setAlexaState('idle');
+    };
+
     utterance.onstart = () => {
+      isSpeakingRef.current = true;
       setCurrentlySpeakingId(msgId);
       setAlexaState('speaking');
+
+      // Chrome long-utterance keepalive check
+      if (ttsSafetyTimeoutRef.current) clearTimeout(ttsSafetyTimeoutRef.current);
+      ttsSafetyTimeoutRef.current = setTimeout(() => {
+        if (isSpeakingRef.current && speechSynthRef.current) {
+          if (speechSynthRef.current.paused) {
+            speechSynthRef.current.resume();
+          }
+        }
+      }, 10000);
     };
+
     utterance.onend = () => {
-      setCurrentlySpeakingId(null);
-      setAlexaState('idle');
-    };
-    utterance.onerror = (e) => {
-      if (e.error === 'interrupted' || e.error === 'canceled') {
-        setCurrentlySpeakingId(null);
-        return;
+      cleanupTTS();
+      // Ensure audio pipeline is fully unlocked on mobile OS
+      if (speechSynthRef.current) {
+        try { speechSynthRef.current.cancel(); } catch (e) {}
       }
-      console.warn('[TTS] Speech synthesis notice:', e);
-      setCurrentlySpeakingId(null);
-      setAlexaState('idle');
+    };
+
+    utterance.onerror = (e) => {
+      if (e.error !== 'interrupted' && e.error !== 'canceled') {
+        console.warn('[TTS] Speech synthesis notice:', e);
+      }
+      cleanupTTS();
     };
 
     try {
       speechSynthRef.current.speak(utterance);
     } catch (sErr) {
       console.warn('[TTS] speak failed:', sErr);
+      cleanupTTS();
     }
   };
 
   const stopSpeech = () => {
+    isSpeakingRef.current = false;
+    activeUtteranceRef.current = null;
+    if (ttsSafetyTimeoutRef.current) {
+      clearTimeout(ttsSafetyTimeoutRef.current);
+      ttsSafetyTimeoutRef.current = null;
+    }
     if (speechSynthRef.current) {
       try {
         speechSynthRef.current.cancel();
       } catch (e) {}
-      setCurrentlySpeakingId(null);
-      if (alexaState === 'speaking') {
-        setAlexaState('idle');
-      }
+    }
+    setCurrentlySpeakingId(null);
+    if (alexaState === 'speaking') {
+      setAlexaState('idle');
     }
   };
 
@@ -287,8 +324,11 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
     setAudioVolume(0);
   };
 
-  // Stop Listening Session
+  // Stop Listening Session Cleanly
   const stopListening = () => {
+    isListeningRef.current = false;
+    isStartingRecRef.current = false;
+
     if (recordTimerRef.current) {
       clearInterval(recordTimerRef.current);
       recordTimerRef.current = null;
@@ -297,7 +337,6 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
       clearTimeout(silenceDetectorTimerRef.current);
       silenceDetectorTimerRef.current = null;
     }
-    isListeningRef.current = false;
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try {
@@ -309,7 +348,8 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
 
     if (recognitionRef.current) {
       try {
-        recognitionRef.current.stop();
+        isRecognitionActiveRef.current = false;
+        recognitionRef.current.abort(); // Instant release without waiting for final buffer
       } catch (e) {}
       recognitionRef.current = null;
     }
@@ -415,24 +455,31 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
 
   // Start MediaRecorder Voice Recording Session with Live SpeechRecognition
   const startListening = async () => {
+    // 1. Unconditionally stop active TTS voice speaker first
     stopSpeech();
     stopListening();
 
+    // 2. Clear state and buffers
     setLiveTranscript('');
     setRecordingSeconds(0);
     setMissingGroqKeyNotice(false);
+    finalTranscriptRef.current = '';
+    interimTranscriptRef.current = '';
     liveInterimTextRef.current = '';
     isListeningRef.current = true;
+    isStartingRecRef.current = true;
 
+    // 3. Start MediaRecorder & Audio Analyser
     const streamReady = await startAudioAnalyser();
     if (!streamReady) {
       isListeningRef.current = false;
+      isStartingRecRef.current = false;
       return;
     }
 
     setAlexaState('listening');
 
-    // Start live browser SpeechRecognition for instantaneous real-time transcription on screen
+    // 4. Initialize Web Speech Recognition with safe isolation
     const SpeechRec = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
     if (SpeechRec) {
       try {
@@ -442,25 +489,36 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
         recognition.maxAlternatives = 1;
         recognition.lang = speechLang === 'hi-IN' ? 'hi-IN' : speechLang === 'en-US' ? 'en-US' : 'en-IN';
 
+        recognition.onstart = () => {
+          isRecognitionActiveRef.current = true;
+          isStartingRecRef.current = false;
+        };
+
         recognition.onresult = (event) => {
-          let finalStr = '';
-          let interimStr = '';
+          let currentFinal = '';
+          let currentInterim = '';
+
           for (let i = 0; i < event.results.length; i++) {
-            const chunk = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              finalStr += chunk + ' ';
+            const res = event.results[i];
+            const textChunk = res[0].transcript;
+            if (res.isFinal) {
+              currentFinal += textChunk + ' ';
             } else {
-              interimStr += chunk;
+              currentInterim += textChunk;
             }
           }
-          const recognized = (finalStr + interimStr).trim();
-          if (recognized) {
-            liveInterimTextRef.current = recognized;
-            setLiveTranscript(recognized);
-            setLatestUserSpoken(recognized);
-            setInput(recognized); // LIVE REAL-TIME TYPING ON SCREEN
 
-            // Reset silence countdown timer to auto-send after 2.2s of user pause
+          finalTranscriptRef.current = currentFinal;
+          interimTranscriptRef.current = currentInterim;
+
+          const combinedSpoken = (currentFinal + currentInterim).trim();
+          if (combinedSpoken) {
+            liveInterimTextRef.current = combinedSpoken;
+            setLiveTranscript(combinedSpoken);
+            setLatestUserSpoken(combinedSpoken);
+            setInput(combinedSpoken); // LIVE REAL-TIME TYPING ON SCREEN
+
+            // Silence detector: Auto-submit after 2.2 seconds of natural silence
             if (silenceDetectorTimerRef.current) {
               clearTimeout(silenceDetectorTimerRef.current);
             }
@@ -473,26 +531,32 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
         };
 
         recognition.onerror = (e) => {
-          console.warn('[WebSpeech] Recognition event:', e.error);
+          console.warn('[WebSpeech] Recognition error:', e.error);
           if (e.error === 'not-allowed') {
             toast.error('Microphone permission was denied.');
             stopListening();
+          } else if (e.error === 'audio-capture') {
+            console.warn('[WebSpeech] Audio capture lock encountered. Refreshing stream...');
           }
         };
 
         recognition.onend = () => {
-          // Restart recognition if listening is still active (e.g. mobile pause)
-          if (isListeningRef.current && recognitionRef.current) {
+          isRecognitionActiveRef.current = false;
+          // Auto-restart if user session is still listening (e.g. mobile auto-pause) and speaker is not talking
+          if (isListeningRef.current && !isSpeakingRef.current && recognitionRef.current) {
             try {
-              recognition.start();
-            } catch (rErr) {}
+              recognitionRef.current.start();
+            } catch (rErr) {
+              console.warn('[WebSpeech] Auto-restart notice:', rErr);
+            }
           }
         };
 
-        recognition.start();
         recognitionRef.current = recognition;
+        recognition.start();
       } catch (recErr) {
         console.warn('[WebSpeech] Init notice:', recErr);
+        isStartingRecRef.current = false;
       }
     }
 
@@ -508,11 +572,13 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
     }, 25000);
   };
 
-  // Stop Recording and Send Audio to Groq Whisper Speech-to-Text API
+  // Stop Recording and Send Audio to Clinical LLM
   const stopListeningAndTranscribe = async () => {
     if (!isListeningRef.current && alexaState !== 'listening') return;
 
     isListeningRef.current = false;
+    isStartingRecRef.current = false;
+
     if (recordTimerRef.current) {
       clearInterval(recordTimerRef.current);
       recordTimerRef.current = null;
@@ -540,17 +606,18 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
     }
 
     const recordedChunks = [...audioChunksRef.current];
-    const rawCaptured = (liveInterimTextRef.current || liveTranscript || input || '').trim();
+    const rawCaptured = (liveInterimTextRef.current || finalTranscriptRef.current || liveTranscript || input || '').trim();
     stopAudioAnalyser();
 
     if (recognitionRef.current) {
       try {
+        isRecognitionActiveRef.current = false;
         recognitionRef.current.stop();
       } catch (e) {}
       recognitionRef.current = null;
     }
 
-    // 1. FAST PATH: If live speech recognition captured words directly from user's voice
+    // 1. FAST PATH: If live Web Speech recognition captured words directly from user's voice (0 delay)
     if (rawCaptured && rawCaptured.length > 1) {
       const cleanCaptured = rawCaptured.replace(/\b([A-Za-z0-9_\u0900-\u097F]+)(\s+\1\b){2,}/gi, '$1').trim();
       console.log('[STT] Instant live speech captured:', cleanCaptured);
@@ -657,6 +724,9 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
       ]);
       setInput('');
       setLiveTranscript('');
+      finalTranscriptRef.current = '';
+      interimTranscriptRef.current = '';
+      liveInterimTextRef.current = '';
     }
 
     setIsLoading(true);
@@ -695,11 +765,11 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
         setIsLoading(false);
         setAlexaState('idle');
 
-        // 3. THEN: After screen display, play Text-to-Speech audio
+        // 3. THEN: After screen display, play Text-to-Speech audio cleanly
         if (voiceOutputEnabled) {
           setTimeout(() => {
             speakText(responseData.reply, botMsgId);
-          }, 150);
+          }, 200);
         }
 
         if (responseData.actionPayload?.result?.pendingConfirmation) {
