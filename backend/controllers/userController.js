@@ -410,6 +410,9 @@ const aiSymptomCheck = async (req, res) => {
                 provider: "backup-controller-mock"
             }
         });
+    } catch (error) {
+        console.error('AI symptom check error:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 }
 
@@ -678,13 +681,6 @@ const aiFollowUp = async (req, res) => {
     } catch (error) {
         console.error('AI follow-up error:', error.message);
         res.status(500).json({ success: false, message: error.message });
-    }
-}
-                warnings_to_watch: ["Dizziness", "Persistent elevated temperature", "Difficulty breathing"],
-                suggestions: ["Observe rest guidelines.", "Schedule doctor visit if symptoms recur."],
-                provider: "backup-controller-mock"
-            }
-        });
     }
 }
 
