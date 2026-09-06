@@ -89,4 +89,27 @@
 }
 .Toastify__toast-theme--dark {
   @apply bg-zinc-950 text-zinc-50 border border-zinc-800 shadow-2xl rounded-xl !important;
+}
+
+/* Mobile viewport utilities */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.pt-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html, body {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
 }

@@ -95,6 +95,8 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const silenceDetectorTimerRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const liveInterimTextRef = useRef('');
 
   // Voice Output (TTS) State
   const [voiceOutputEnabled, setVoiceOutputEnabled] = useState(true);
@@ -305,12 +307,17 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
 
     stopAudioAnalyser();
 
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+      recognitionRef.current = null;
+    }
+
     if (alexaState === 'listening') {
       setAlexaState('idle');
     }
   };
-
-  const maxVolumeRef = useRef(0);
 
   // Setup Web Audio Volume Monitoring with True RMS Time-Domain Sensitivity
   const startAudioAnalyser = async () => {
@@ -406,7 +413,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
     }
   };
 
-  // Start MediaRecorder Voice Recording Session
+  // Start MediaRecorder Voice Recording Session with Live SpeechRecognition
   const startListening = async () => {
     stopSpeech();
     stopListening();
@@ -414,6 +421,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
     setLiveTranscript('');
     setRecordingSeconds(0);
     setMissingGroqKeyNotice(false);
+    liveInterimTextRef.current = '';
     isListeningRef.current = true;
 
     const streamReady = await startAudioAnalyser();
@@ -424,16 +432,69 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
 
     setAlexaState('listening');
 
+    // Start live browser SpeechRecognition for instantaneous real-time transcription on screen
+    const SpeechRec = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
+    if (SpeechRec) {
+      try {
+        const recognition = new SpeechRec();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = speechLang === 'hi-IN' ? 'hi-IN' : 'en-IN';
+
+        recognition.onresult = (event) => {
+          let currentTranscript = '';
+          for (let i = 0; i < event.results.length; i++) {
+            currentTranscript += event.results[i][0].transcript;
+          }
+          const recognized = currentTranscript.trim();
+          if (recognized) {
+            liveInterimTextRef.current = recognized;
+            setLiveTranscript(recognized);
+            setLatestUserSpoken(recognized);
+            setInput(recognized); // LIVE REAL-TIME TYPING ON SCREEN
+
+            // Reset silence countdown timer to auto-send after user finishes speaking
+            if (silenceDetectorTimerRef.current) {
+              clearTimeout(silenceDetectorTimerRef.current);
+            }
+            silenceDetectorTimerRef.current = setTimeout(() => {
+              if (isListeningRef.current) {
+                stopListeningAndTranscribe();
+              }
+            }, 3000);
+          }
+        };
+
+        recognition.onerror = (e) => {
+          console.warn('[WebSpeech] Recognition event:', e.error);
+        };
+
+        recognition.onend = () => {
+          // Restart recognition if listening is still active (e.g. mobile pause)
+          if (isListeningRef.current && recognitionRef.current) {
+            try {
+              recognition.start();
+            } catch (rErr) {}
+          }
+        };
+
+        recognition.start();
+        recognitionRef.current = recognition;
+      } catch (recErr) {
+        console.warn('[WebSpeech] Init notice:', recErr);
+      }
+    }
+
     recordTimerRef.current = setInterval(() => {
       setRecordingSeconds(prev => prev + 1);
     }, 1000);
 
-    // Auto-stop recording after 20 seconds max duration
+    // Auto-stop recording after 25 seconds max duration if no speech
     silenceDetectorTimerRef.current = setTimeout(() => {
       if (isListeningRef.current) {
         stopListeningAndTranscribe();
       }
-    }, 20000);
+    }, 25000);
   };
 
   // Stop Recording and Send Audio to Groq Whisper Speech-to-Text API
@@ -468,9 +529,17 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
     }
 
     const recordedChunks = [...audioChunksRef.current];
+    const liveCaptured = liveInterimTextRef.current || liveTranscript || input;
     stopAudioAnalyser();
 
-    if (recordedChunks.length === 0) {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+      recognitionRef.current = null;
+    }
+
+    if (recordedChunks.length === 0 && !liveCaptured) {
       setAlexaState('idle');
       toast.info('No audio detected. Please tap the mic and speak.');
       return;
@@ -479,7 +548,18 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
     const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
     const audioBlob = new Blob(recordedChunks, { type: mimeType });
 
-    if (audioBlob.size < 200) {
+    // If live speech already captured clear words, process immediately
+    if (liveCaptured && liveCaptured.trim().length > 1) {
+      const liveText = liveCaptured.trim();
+      console.log('[STT] Instant live speech captured:', liveText);
+      setLiveTranscript(liveText);
+      setLatestUserSpoken(liveText);
+      setInput(liveText);
+      handleSendMessage(liveText);
+      return;
+    }
+
+    if (audioBlob.size < 200 && !liveCaptured) {
       setAlexaState('idle');
       toast.info('Recording was too short. Please tap the microphone and speak your symptoms.');
       return;
@@ -498,40 +578,53 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
           'Content-Type': 'multipart/form-data',
           ...(token ? { token } : {})
         },
-        timeout: 15000
+        timeout: 12000
       };
 
       // 2. Call backend Groq Whisper Transcription Endpoint
       const { data } = await axios.post(`${backendUrl}/api/transcribe`, formData, config);
 
-      if (data.success && data.text && data.text.trim()) {
-        const recognizedText = data.text.trim();
-        console.log('[GroqWhisper] Received transcript:', recognizedText);
+      let finalRecognizedText = '';
 
-        setLiveTranscript(recognizedText);
-        setLatestUserSpoken(recognizedText);
-        setInput(recognizedText);
+      if (data.success && data.text && data.text.trim()) {
+        finalRecognizedText = data.text.trim();
+      } else if (liveCaptured && liveCaptured.trim()) {
+        finalRecognizedText = liveCaptured.trim();
+      }
+
+      if (finalRecognizedText) {
+        console.log('[STT] Final recognized transcript:', finalRecognizedText);
+        setLiveTranscript(finalRecognizedText);
+        setLatestUserSpoken(finalRecognizedText);
+        setInput(finalRecognizedText);
 
         // 3. Immediately send transcript to LLM clinical workflow
-        handleSendMessage(recognizedText);
+        handleSendMessage(finalRecognizedText);
       } else if (data.requiresCredential) {
         setAlexaState('idle');
         setMissingGroqKeyNotice(true);
-        toast.warn('GROQ_API_KEY is missing in backend/.env. Please add GROQ_API_KEY=gsk_...');
+        toast.warn('GROQ_API_KEY is missing in backend/.env.');
       } else {
         setAlexaState('idle');
         toast.info(data.message || 'Could not recognize speech. Please speak clearly into your mic.');
       }
     } catch (error) {
-      console.error('[GroqWhisper] Frontend upload error:', error);
-      setAlexaState('idle');
-      if (error.response?.data?.requiresCredential) {
-        setMissingGroqKeyNotice(true);
-        toast.warn('GROQ_API_KEY required in backend/.env for Groq Whisper transcription.');
-      } else if (error.code === 'ECONNABORTED') {
-        toast.error('Transcription request timed out. Please check your network connection.');
+      console.warn('[Voice] Backend upload notice, checking live fallback...', error);
+      if (liveCaptured && liveCaptured.trim()) {
+        const textFallback = liveCaptured.trim();
+        console.log('[STT] Using live transcript fallback:', textFallback);
+        setLiveTranscript(textFallback);
+        setLatestUserSpoken(textFallback);
+        setInput(textFallback);
+        handleSendMessage(textFallback);
       } else {
-        toast.error(error.response?.data?.message || 'Speech transcription failed. Please try typing or speak again.');
+        setAlexaState('idle');
+        if (error.response?.data?.requiresCredential) {
+          setMissingGroqKeyNotice(true);
+          toast.warn('GROQ_API_KEY required in backend/.env.');
+        } else {
+          toast.error(error.response?.data?.message || 'Speech transcription failed. Please try typing or speak again.');
+        }
       }
     }
   };
@@ -675,33 +768,33 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
   };
 
   return (
-    <div className={`flex flex-col ${mode === 'page' ? 'w-full h-[820px] max-w-5xl mx-auto rounded-3xl shadow-2xl' : 'w-[440px] sm:w-[520px] h-[720px] rounded-3xl shadow-2xl'} bg-zinc-950 border border-zinc-800 text-white overflow-hidden font-sans select-none transition-all duration-300`}>
+    <div className={`flex flex-col ${mode === 'page' ? 'w-full h-[85vh] max-w-5xl mx-auto rounded-2xl sm:rounded-3xl shadow-2xl' : 'w-full sm:w-[480px] h-[100dvh] sm:h-[720px] max-h-[100dvh] sm:max-h-[88vh] rounded-none sm:rounded-3xl shadow-2xl'} bg-zinc-950 border border-zinc-800 text-white overflow-hidden font-sans select-none transition-all duration-300`}>
       
       {/* 🌟 1. HEADER BAR */}
-      <div className="bg-gradient-to-b from-zinc-900 to-zinc-950 border-b border-zinc-800 shadow-md">
+      <div className="bg-gradient-to-b from-zinc-900 to-zinc-950 border-b border-zinc-800 shadow-md flex-shrink-0">
         
         {/* Tier 1: Main Title, Status, and Controls */}
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-2.5 min-w-0">
+        <div className="px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between">
+          <div className="flex items-center space-x-2 min-w-0">
             <div className="relative flex-shrink-0">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary to-indigo-600 flex items-center justify-center text-white shadow-md shadow-primary/30 border border-white/20">
-                <Sparkles className="w-5 h-5" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-primary to-indigo-600 flex items-center justify-center text-white shadow-md shadow-primary/30 border border-white/20">
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 border-2 border-zinc-950 rounded-full animate-pulse" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-zinc-950 rounded-full animate-pulse" />
             </div>
             
             <div className="flex flex-col min-w-0">
-              <div className="flex items-center space-x-2">
-                <h3 className="font-bold text-base tracking-tight text-white truncate">HealthVerse AI</h3>
-                <span className="text-[10px] bg-primary/20 text-indigo-300 border border-primary/30 font-semibold px-2 py-0.5 rounded-full flex-shrink-0">
+              <div className="flex items-center space-x-1.5">
+                <h3 className="font-bold text-sm sm:text-base tracking-tight text-white truncate">HealthVerse AI</h3>
+                <span className="text-[9px] sm:text-[10px] bg-primary/20 text-indigo-300 border border-primary/30 font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0">
                   Groq Whisper v3
                 </span>
               </div>
-              <span className="text-[11px] text-zinc-400 font-medium truncate">Clinical Healthcare Assistant</span>
+              <span className="text-[10px] sm:text-[11px] text-zinc-400 font-medium truncate">Clinical Healthcare Assistant</span>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 flex-shrink-0">
+          <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
             {/* View Mode Toggle */}
             <div className="flex items-center bg-zinc-850 p-0.5 rounded-xl border border-zinc-700/60 shadow-inner">
               <button
@@ -709,7 +802,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
                   stopSpeech();
                   setViewMode('alexa');
                 }}
-                className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center space-x-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   viewMode === 'alexa'
                     ? 'bg-primary text-white shadow-sm'
                     : 'text-zinc-400 hover:text-white'
@@ -724,7 +817,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
                   stopSpeech();
                   setViewMode('chat');
                 }}
-                className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center space-x-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   viewMode === 'chat'
                     ? 'bg-primary text-white shadow-sm'
                     : 'text-zinc-400 hover:text-white'
@@ -743,7 +836,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
                 if (voiceOutputEnabled) stopSpeech();
               }}
               title={voiceOutputEnabled ? 'Voice Auto-Reply ON' : 'Voice Auto-Reply Muted'}
-              className={`p-2 rounded-xl border transition-all cursor-pointer ${
+              className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer ${
                 voiceOutputEnabled 
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm' 
                   : 'bg-zinc-800 text-zinc-400 border-zinc-700'
@@ -760,7 +853,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
                   stopListening();
                   onClose();
                 }}
-                className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition-colors cursor-pointer"
+                className="p-1.5 sm:p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -769,8 +862,8 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
         </div>
 
         {/* Tier 2: Sub-toolbar with Language Picker, Microphone Device Selector & Badges */}
-        <div className="px-4 py-2 bg-zinc-950/80 border-t border-zinc-800/80 flex items-center justify-between text-xs gap-2 flex-wrap">
-          <div className="flex items-center space-x-1.5">
+        <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-zinc-950/80 border-t border-zinc-800/80 flex items-center justify-between text-xs gap-1.5 sm:gap-2 flex-wrap">
+          <div className="flex items-center space-x-1 sm:space-x-1.5">
             <Languages className="w-3.5 h-3.5 text-zinc-400" />
             <select
               id="voice-language-select"
@@ -780,7 +873,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
                 setSpeechLang(e.target.value);
                 toast.info(`Voice output language: ${e.target.value === 'hi-IN' ? 'Hindi (हिन्दी)' : 'English / Hinglish'}`);
               }}
-              className="bg-zinc-900 text-zinc-200 text-xs rounded-lg px-2 py-1 font-semibold border border-zinc-700 focus:outline-none focus:border-primary cursor-pointer max-w-[170px] sm:max-w-none truncate"
+              className="bg-zinc-900 text-zinc-200 text-[11px] sm:text-xs rounded-lg px-1.5 sm:px-2 py-0.5 sm:py-1 font-semibold border border-zinc-700 focus:outline-none focus:border-primary cursor-pointer max-w-[150px] sm:max-w-none truncate"
             >
               <option value="en-IN">🌐 English / Hinglish (Auto)</option>
               <option value="hi-IN">🇮🇳 हिन्दी (Hindi Voice)</option>
@@ -791,7 +884,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
           {/* Microphone Device Picker */}
           {audioDevices.length > 1 && (
             <div className="flex items-center space-x-1">
-              <Mic className="w-3.5 h-3.5 text-zinc-400" />
+              <Mic className="w-3 h-3 text-zinc-400" />
               <select
                 id="voice-mic-device-select"
                 name="micDevice"
@@ -801,7 +894,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
                   stopListening();
                   toast.info('Microphone input device updated.');
                 }}
-                className="bg-zinc-900 text-zinc-300 text-[11px] rounded-lg px-2 py-1 border border-zinc-700 focus:outline-none focus:border-primary cursor-pointer max-w-[160px] truncate"
+                className="bg-zinc-900 text-zinc-300 text-[10px] sm:text-[11px] rounded-lg px-1.5 py-0.5 sm:py-1 border border-zinc-700 focus:outline-none focus:border-primary cursor-pointer max-w-[130px] sm:max-w-[160px] truncate"
                 title="Select Microphone Input Device"
               >
                 {audioDevices.map((d, i) => (
@@ -813,7 +906,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
             </div>
           )}
 
-          <div className="flex items-center space-x-1 text-[11px] text-zinc-400 font-medium ml-auto">
+          <div className="flex items-center space-x-1 text-[10px] sm:text-[11px] text-zinc-400 font-medium ml-auto">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             <span>Groq Whisper Large v3</span>
           </div>
@@ -822,11 +915,11 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
 
       {/* ⚠️ Missing Groq Key Notice Banner */}
       {missingGroqKeyNotice && (
-        <div className="bg-amber-500/15 border-b border-amber-500/30 p-2.5 text-xs text-amber-200 flex items-center justify-between">
+        <div className="bg-amber-500/15 border-b border-amber-500/30 p-2.5 text-xs text-amber-200 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center space-x-2">
             <Key className="w-4 h-4 text-amber-400 flex-shrink-0" />
             <span>
-              <strong>GROQ_API_KEY required:</strong> Add your free key <code className="bg-zinc-900 px-1.5 py-0.5 rounded text-amber-300">GROQ_API_KEY=gsk_...</code> to <code className="bg-zinc-900 px-1.5 py-0.5 rounded text-amber-300">backend/.env</code>
+              <strong>GROQ_API_KEY required:</strong> Add key <code className="bg-zinc-900 px-1.5 py-0.5 rounded text-amber-300">GROQ_API_KEY=gsk_...</code> to <code className="bg-zinc-900 px-1.5 py-0.5 rounded text-amber-300">backend/.env</code>
             </span>
           </div>
           <button 
@@ -840,29 +933,29 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
 
       {/* 🔮 2. VIEW 1: VOICE ORB EXPERIENCE */}
       {viewMode === 'alexa' ? (
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col justify-between items-center bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 relative">
+        <div className="flex-1 overflow-y-auto p-2.5 sm:p-4 flex flex-col justify-between items-center bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 relative min-h-0">
           
           <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
 
           {/* Quick Vital & Security Banner */}
-          <div className="w-full max-w-lg grid grid-cols-3 gap-2 text-center text-[10px] font-semibold text-zinc-400 z-10 mb-2">
-            <div className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center space-x-1">
+          <div className="w-full max-w-lg grid grid-cols-3 gap-1.5 sm:gap-2 text-center text-[9px] sm:text-[10px] font-semibold text-zinc-400 z-10 mb-1 sm:mb-2 flex-shrink-0">
+            <div className="p-1 sm:p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center space-x-1">
               <Stethoscope className="w-3 h-3 text-primary" />
               <span>Symptom Triage</span>
             </div>
-            <div className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center space-x-1">
+            <div className="p-1 sm:p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center space-x-1">
               <ShieldCheck className="w-3 h-3 text-emerald-400" />
               <span>ISO & Safe</span>
             </div>
-            <div className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center space-x-1">
+            <div className="p-1 sm:p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center space-x-1">
               <Zap className="w-3 h-3 text-amber-400" />
               <span>1-Tap Booking</span>
             </div>
           </div>
 
           {/* Dynamic Status Pill: Listening... → Processing... → Speaking... */}
-          <div className="text-center z-10 my-1 flex flex-col items-center gap-1">
-            <span className={`inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+          <div className="text-center z-10 my-0.5 sm:my-1 flex flex-col items-center gap-1 flex-shrink-0">
+            <span className={`inline-flex items-center px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-all ${
               alexaState === 'listening'
                 ? 'bg-red-500/20 border-red-500/40 text-red-300 ring-4 ring-red-500/20'
                 : alexaState === 'transcribing'
@@ -895,7 +988,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
           </div>
 
           {/* Central Pulsating 3D Alexa Holographic Orb */}
-          <div className="my-2 flex flex-col items-center justify-center z-10">
+          <div className="my-1 sm:my-2 flex flex-col items-center justify-center z-10 flex-shrink-0">
             <div className="relative flex items-center justify-center">
               
               {/* Outer Energy Pulsing Aura */}
@@ -905,7 +998,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
                   opacity: alexaState === 'listening' ? [0.6, 0.9, 0.6] : [0.3, 0.5, 0.3],
                 }}
                 transition={{ duration: alexaState === 'listening' ? 0.6 : 2.5, repeat: Infinity, ease: 'easeInOut' }}
-                className={`absolute w-36 h-36 sm:w-40 sm:h-40 rounded-full blur-xl ${
+                className={`absolute w-24 h-24 sm:w-36 sm:h-36 rounded-full blur-xl ${
                   alexaState === 'listening'
                     ? 'bg-red-500/40'
                     : alexaState === 'transcribing'
@@ -923,42 +1016,42 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={toggleListening}
-                className={`w-28 h-28 sm:w-32 sm:h-32 rounded-full flex flex-col items-center justify-center relative z-20 cursor-pointer shadow-2xl transition-all duration-500 border-2 ${
+                className={`w-20 h-20 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center relative z-20 cursor-pointer shadow-2xl transition-all duration-500 border-2 ${
                   alexaState === 'listening'
-                    ? 'bg-gradient-to-tr from-red-600 via-rose-500 to-amber-500 border-red-300 ring-8 ring-red-500/30'
+                    ? 'bg-gradient-to-tr from-red-600 via-rose-500 to-amber-500 border-red-300 ring-6 sm:ring-8 ring-red-500/30'
                     : alexaState === 'transcribing'
-                    ? 'bg-gradient-to-tr from-purple-600 via-indigo-600 to-cyan-500 border-purple-300 ring-8 ring-purple-500/30 animate-pulse'
+                    ? 'bg-gradient-to-tr from-purple-600 via-indigo-600 to-cyan-500 border-purple-300 ring-6 sm:ring-8 ring-purple-500/30 animate-pulse'
                     : alexaState === 'speaking'
-                    ? 'bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-500 border-emerald-300 ring-8 ring-emerald-500/30'
+                    ? 'bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-500 border-emerald-300 ring-6 sm:ring-8 ring-emerald-500/30'
                     : alexaState === 'thinking' || isLoading
-                    ? 'bg-gradient-to-tr from-indigo-600 via-purple-500 to-amber-500 border-amber-300 animate-spin ring-8 ring-amber-500/20'
-                    : 'bg-gradient-to-tr from-primary via-indigo-600 to-cyan-500 border-white/40 ring-8 ring-primary/20'
+                    ? 'bg-gradient-to-tr from-indigo-600 via-purple-500 to-amber-500 border-amber-300 animate-spin ring-6 sm:ring-8 ring-amber-500/20'
+                    : 'bg-gradient-to-tr from-primary via-indigo-600 to-cyan-500 border-white/40 ring-6 sm:ring-8 ring-primary/20'
                 }`}
               >
                 {alexaState === 'listening' ? (
                   <>
-                    <MicOff className="w-8 h-8 text-white animate-pulse" />
-                    <span className="text-[10px] font-bold text-white mt-1">Tap to Stop & Send</span>
+                    <MicOff className="w-6 h-6 sm:w-8 sm:h-8 text-white animate-pulse" />
+                    <span className="text-[9px] sm:text-[10px] font-bold text-white mt-0.5">Stop & Send</span>
                   </>
                 ) : alexaState === 'transcribing' ? (
                   <>
-                    <Loader2 className="w-8 h-8 text-white animate-spin" />
-                    <span className="text-[9px] font-bold text-white mt-1">Processing...</span>
+                    <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 text-white animate-spin" />
+                    <span className="text-[8px] sm:text-[9px] font-bold text-white mt-0.5">Processing...</span>
                   </>
                 ) : alexaState === 'speaking' ? (
                   <>
-                    <Volume2 className="w-8 h-8 text-white animate-bounce" />
-                    <span className="text-[10px] font-bold text-white mt-1">Speaking...</span>
+                    <Volume2 className="w-6 h-6 sm:w-8 sm:h-8 text-white animate-bounce" />
+                    <span className="text-[9px] sm:text-[10px] font-bold text-white mt-0.5">Speaking...</span>
                   </>
                 ) : alexaState === 'thinking' || isLoading ? (
                   <>
-                    <Loader2 className="w-8 h-8 text-white animate-spin" />
-                    <span className="text-[9px] font-bold text-white mt-1">Analyzing...</span>
+                    <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 text-white animate-spin" />
+                    <span className="text-[8px] sm:text-[9px] font-bold text-white mt-0.5">Analyzing...</span>
                   </>
                 ) : (
                   <>
-                    <Mic className="w-8 h-8 text-white" />
-                    <span className="text-[10px] font-bold text-white mt-1">Tap to Speak</span>
+                    <Mic className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                    <span className="text-[9px] sm:text-[10px] font-bold text-white mt-0.5">Tap to Speak</span>
                   </>
                 )}
               </motion.button>
@@ -966,15 +1059,15 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
 
             {/* Sound Wave Frequency Bars */}
             {alexaState === 'listening' && (
-              <div className="flex items-end justify-center space-x-1.5 h-6 mt-2.5">
+              <div className="flex items-end justify-center space-x-1 sm:space-x-1.5 h-4 sm:h-6 mt-1.5 sm:mt-2.5">
                 {[4, 10, 8, 16, 12, 20, 9, 18, 11, 14, 8, 12].map((baseH, i) => {
-                  const dynamicH = Math.max(4, Math.min(24, baseH + Math.round((audioVolume / 100) * 16)));
+                  const dynamicH = Math.max(3, Math.min(20, Math.round(baseH * 0.8 + (audioVolume / 100) * 12)));
                   return (
                     <motion.span
                       key={i}
-                      animate={{ height: [baseH, dynamicH, baseH] }}
+                      animate={{ height: [baseH * 0.7, dynamicH, baseH * 0.7] }}
                       transition={{ duration: 0.2, repeat: Infinity, delay: i * 0.025 }}
-                      className={`w-1.5 rounded-full ${audioVolume > 5 ? 'bg-emerald-400 shadow-sm shadow-emerald-400' : 'bg-red-400'}`}
+                      className={`w-1 sm:w-1.5 rounded-full ${audioVolume > 5 ? 'bg-emerald-400 shadow-sm shadow-emerald-400' : 'bg-red-400'}`}
                     />
                   );
                 })}
@@ -983,10 +1076,10 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
           </div>
 
           {/* 🌟 3. REAL-TIME SPEECH DISPLAY & STRUCTURED AI RESPONSE CONTAINER */}
-          <div className="w-full max-w-lg bg-zinc-900/95 backdrop-blur-md rounded-2xl p-3 sm:p-4 border border-zinc-800 shadow-xl z-10 space-y-3 flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="w-full max-w-lg bg-zinc-900/95 backdrop-blur-md rounded-2xl p-2.5 sm:p-4 border border-zinc-800 shadow-xl z-10 space-y-2 sm:space-y-3 flex-1 flex flex-col min-h-0 overflow-hidden">
             
             {/* Live Spoken Speech Banner */}
-            {(liveTranscript || latestUserSpoken) && (
+            {(liveTranscript || latestUserSpoken || (alexaState === 'listening' && input)) && (
               <div className="flex flex-col space-y-1.5 bg-zinc-950/80 p-2.5 rounded-xl border border-zinc-800/90 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-1.5">
@@ -994,13 +1087,20 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
                       <User className="w-2.5 h-2.5 text-zinc-300" />
                     </div>
                     <span className="text-[10px] text-zinc-400 font-semibold">
-                      {alexaState === 'listening' ? '🎙️ Speaking now:' : 'You said:'}
+                      {alexaState === 'listening' ? '🎙️ Live Voice Typing:' : 'You said:'}
                     </span>
                   </div>
+                  {alexaState === 'listening' && (
+                    <span className="flex items-center space-x-1 text-[9px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>Typing Live...</span>
+                    </span>
+                  )}
                 </div>
 
                 <p className="text-xs text-zinc-100 font-medium leading-relaxed">
-                  {liveTranscript || latestUserSpoken}
+                  {liveTranscript || input || latestUserSpoken}
+                  {alexaState === 'listening' && <span className="inline-block w-1.5 h-3 bg-emerald-400 ml-1 animate-pulse">|</span>}
                 </p>
               </div>
             )}
@@ -1118,24 +1218,25 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
                 <div className="text-center py-4 text-zinc-400 text-xs">
                   <p className="font-medium text-zinc-300 mb-1">How can I assist your health today?</p>
                   <p className="text-[11px] text-zinc-500">
-                    Speak naturally: "I have had fever for 2 days" or "Show available dermatologists"
+                    Speak naturally in Hindi or English: "Mujhe bukhar hai" or "Show available doctors"
                   </p>
                 </div>
               )}
             </div>
 
             {/* Quick Action Suggestion Chips */}
-            <div className="flex flex-wrap gap-1.5 pt-2 border-t border-zinc-800 flex-shrink-0">
+            <div className="flex flex-nowrap overflow-x-auto gap-1.5 pt-2 border-t border-zinc-800 flex-shrink-0 scrollbar-none pb-0.5">
               {[
-                "I have fever for 2 days",
+                "Mujhe 2 din se bukhar hai",
                 "Find Cardiologists",
                 "Check Dr. Test User slots",
-                "Doctor visit checklist"
+                "Doctor visit checklist",
+                "Emergency SOS Support"
               ].map((chip, cIdx) => (
                 <button
                   key={cIdx}
                   onClick={() => handleSendMessage(chip)}
-                  className="text-[10px] px-2.5 py-1 bg-zinc-800 hover:bg-primary/30 hover:border-primary/50 text-zinc-300 rounded-full border border-zinc-700 transition-colors cursor-pointer"
+                  className="text-[10px] px-2.5 py-1 bg-zinc-800 hover:bg-primary/30 hover:border-primary/50 text-zinc-300 rounded-full border border-zinc-700 transition-colors cursor-pointer flex-shrink-0 whitespace-nowrap"
                 >
                   {chip}
                 </button>
@@ -1144,21 +1245,30 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
           </div>
 
           {/* Bottom Type Input Bar */}
-          <div className="w-full max-w-lg mt-2 flex items-center space-x-2 z-10">
-            <input
-              id="voice-assistant-input"
-              name="voiceAssistantQuery"
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-              placeholder="Type your health query or tap microphone..."
-              className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-primary"
-            />
+          <div className="w-full max-w-lg mt-2 flex items-center space-x-2 z-10 pb-safe">
+            <div className="relative flex-1 flex items-center">
+              <input
+                id="voice-assistant-input"
+                name="voiceAssistantQuery"
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder={alexaState === 'listening' ? "🎙️ Speaking... words typing live here" : "Type symptoms or tap microphone..."}
+                className={`w-full bg-zinc-900 border ${alexaState === 'listening' ? 'border-emerald-500/60 ring-2 ring-emerald-500/20' : 'border-zinc-800'} rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all`}
+              />
+              {alexaState === 'listening' && (
+                <span className="absolute right-2.5 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+              )}
+            </div>
             <button
               onClick={() => handleSendMessage()}
               disabled={!input.trim() || isLoading}
-              className="p-2 bg-primary text-white rounded-xl hover:bg-primary/90 disabled:opacity-40 cursor-pointer shadow-md"
+              className="p-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 disabled:opacity-40 cursor-pointer shadow-md flex-shrink-0"
+              title="Send message"
             >
               <Send className="w-4 h-4" />
             </button>
@@ -1411,7 +1521,7 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
 
       {/* 6. Bottom Bar for Chat View Mode */}
       {viewMode === 'chat' && (
-        <div className="p-3 bg-zinc-900 border-t border-zinc-800">
+        <div className="p-3 bg-zinc-900 border-t border-zinc-800 pb-safe">
           <form onSubmit={onSubmit} className="flex items-center space-x-2">
             
             {/* Mic Button */}
@@ -1437,15 +1547,23 @@ const AiVoiceChat = ({ isOpen, onClose, mode = 'widget' }) => {
             </button>
 
             {/* Input Field */}
-            <input
-              id="chat-assistant-input"
-              name="chatAssistantQuery"
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Describe your symptoms or ask a question..."
-              className="flex-1 bg-zinc-800/90 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-zinc-100"
-            />
+            <div className="relative flex-1 flex items-center">
+              <input
+                id="chat-assistant-input"
+                name="chatAssistantQuery"
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={alexaState === 'listening' ? "🎙️ Speaking... words typing live here" : "Describe your symptoms or ask a question in Hindi/English..."}
+                className={`w-full bg-zinc-800/90 border ${alexaState === 'listening' ? 'border-emerald-500/60 ring-2 ring-emerald-500/20' : 'border-zinc-700'} rounded-xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary text-zinc-100 transition-all`}
+              />
+              {alexaState === 'listening' && (
+                <span className="absolute right-3 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              )}
+            </div>
 
             {/* Send Button */}
             <button

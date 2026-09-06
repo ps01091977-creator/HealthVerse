@@ -75,21 +75,32 @@ const callGeminiFlash = async (messages) => {
       }
     }
 
-    // Active high-speed Google Gemini model
-    const candidateModels = ['gemini-3.6-flash'];
+    // Active high-speed Google Gemini models in parallel race
+    const candidateModels = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
     const startTime = Date.now();
 
     const requestPromises = candidateModels.map(async (model) => {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
-      const response = await axios.post(url, {
-        contents: formattedContents,
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 1000,
-        }
-      }, { timeout: 12000 });
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: formattedContents,
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 1000,
+          }
+        }),
+        signal: AbortSignal.timeout(10000)
+      });
 
-      const candidate = response.data?.candidates?.[0];
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(`${model} status ${response.status}: ${errJson.error?.message || 'Request failed'}`);
+      }
+
+      const responseData = await response.json();
+      const candidate = responseData?.candidates?.[0];
       const rawText = candidate?.content?.parts?.[0]?.text;
       if (!rawText || !rawText.trim()) throw new Error(`Empty response from ${model}`);
 
@@ -128,8 +139,63 @@ const callGeminiFlash = async (messages) => {
   return null;
 };
 
+import Groq from 'groq-sdk';
+
+let groqSdkClient = null;
+
+const getGroqSdkClient = () => {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+  if (!groqSdkClient) {
+    groqSdkClient = new Groq({ apiKey });
+  }
+  return groqSdkClient;
+};
+
 /**
- * Call Grok LLM with optional tool calling and high-speed multi-engine fallback
+ * Call Groq Cloud LLM (gpt-oss-120b / gpt-oss-20b) with sub-second latency
+ */
+const callGroqLlm = async (messages) => {
+  const groq = getGroqSdkClient();
+  if (!groq) return null;
+
+  const candidateModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'groq/compound'];
+  const formattedMessages = messages.map(m => ({
+    role: m.role === 'assistant' ? 'assistant' : m.role === 'system' ? 'system' : 'user',
+    content: m.content || '',
+  }));
+
+  for (const model of candidateModels) {
+    try {
+      const response = await groq.chat.completions.create({
+        messages: formattedMessages,
+        model,
+        temperature: 0.3,
+        max_tokens: 1000,
+      });
+
+      const rawText = response.choices?.[0]?.message?.content;
+      if (rawText && rawText.trim()) {
+        console.log(`[GrokService] Groq LLM success with model: ${model}`);
+        return {
+          success: true,
+          message: {
+            role: 'assistant',
+            content: rawText.trim(),
+          },
+          finish_reason: 'stop',
+          provider: `groq-${model}`,
+        };
+      }
+    } catch (err) {
+      console.warn(`[GrokService] Groq model ${model} error:`, err.message);
+    }
+  }
+  return null;
+};
+
+/**
+ * Call Grok / Gemini / Groq LLM with multi-engine speed race
  */
 export const callGrok = async ({
   messages,
@@ -137,13 +203,36 @@ export const callGrok = async ({
   temperature = 0.3,
   model = 'grok-2-latest',
 }) => {
-  // 1. High-speed Parallel Google Gemini Engine
-  const geminiRes = await callGeminiFlash(messages);
-  if (geminiRes) {
-    return geminiRes;
+  // 1. Race Google Gemini Flash and Groq Cloud LLM in parallel for ultra-fast response
+  const activeEngines = [];
+  if (process.env.GEMINI_API_KEY) {
+    activeEngines.push(callGeminiFlash(messages));
+  }
+  if (process.env.GROQ_API_KEY) {
+    activeEngines.push(callGroqLlm(messages));
   }
 
-  // 2. Rich Local Clinical Intelligence Engine (Fluent Professional English)
+  if (activeEngines.length > 0) {
+    try {
+      const winner = await Promise.any(
+        activeEngines.map(p => p.then(res => {
+          if (!res || !res.success) throw new Error('Engine response invalid');
+          return res;
+        }))
+      );
+      if (winner) return winner;
+    } catch (e) {
+      console.warn('[GrokService] Parallel AI race fallback notice, trying direct engines...');
+    }
+  }
+
+  const geminiRes = await callGeminiFlash(messages);
+  if (geminiRes) return geminiRes;
+
+  const groqRes = await callGroqLlm(messages);
+  if (groqRes) return groqRes;
+
+  // 2. Doctor-grade Local Clinical Engine fallback
   const lastUserMsg = messages.filter(m => m.role === 'user').pop()?.content || '';
   return {
     success: true,
