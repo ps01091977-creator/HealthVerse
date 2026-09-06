@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { AppContext } from '../context/AppContext'
+import { assets } from '../assets/assets'
 import { Search, Filter, Sparkles, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react'
 
 const Doctors = () => {
@@ -144,44 +145,48 @@ const Doctors = () => {
               Failed to load doctor listings. Please try again.
             </div>
           ) : isLoading ? (
-            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
+            <div className='grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4'>
               {Array(4).fill(0).map((_, i) => <DoctorCardSkeleton key={i} />)}
             </div>
           ) : paginatedDoctors.length > 0 ? (
             <>
-              <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
+              <div className='grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4'>
                 {paginatedDoctors.map((item) => (
                   <div
                     onClick={() => { navigate(`/appointment/${item._id}`); scrollTo(0, 0) }}
-                    className='group border border-zinc-200/50 dark:border-zinc-850 bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl hover:border-zinc-300 dark:hover:border-zinc-800 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between'
+                    className='group border border-zinc-200/70 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl hover:border-primary/40 dark:hover:border-primary/40 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between'
                     key={item._id}
                   >
-                    <div className="relative overflow-hidden bg-zinc-50 dark:bg-zinc-950 h-48">
+                    <div className="relative overflow-hidden bg-gradient-to-b from-blue-50/50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-950 aspect-[4/3] sm:aspect-square md:h-48">
                       <img
                         className='w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105'
-                        src={item.image}
+                        src={item.image || assets.doc1}
                         alt={item.name}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null
+                          e.currentTarget.src = assets.doc1
+                        }}
                       />
-                      <div className="absolute top-2.5 left-2.5">
+                      <div className="absolute top-2 left-2 sm:top-2.5 sm:left-2.5">
                         <span className={`inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full border shadow-sm backdrop-blur-md ${
-                          item.available
+                          item.available !== false
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                             : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
                         }`}>
-                          <span className={`w-1 h-1 rounded-full ${item.available ? 'bg-emerald-500' : 'bg-zinc-400'}`}></span>
-                          {item.available ? 'Available' : 'Unavailable'}
+                          <span className={`w-1 h-1 rounded-full ${item.available !== false ? 'bg-emerald-500' : 'bg-zinc-400'}`}></span>
+                          {item.available !== false ? 'Available' : 'Unavailable'}
                         </span>
                       </div>
                     </div>
 
-                    <div className='p-3.5 border-t border-zinc-100 dark:border-zinc-850 space-y-1.5'>
+                    <div className='p-3 sm:p-3.5 border-t border-zinc-100 dark:border-zinc-800 space-y-1.5'>
                       <div>
-                        <span className='text-[9px] text-primary dark:text-primary font-bold uppercase tracking-wider'>{item.speciality}</span>
+                        <span className='text-[9px] text-primary dark:text-primary font-bold uppercase tracking-wider block truncate'>{item.speciality}</span>
                         <h3 className='text-zinc-900 dark:text-zinc-50 text-xs font-bold truncate w-full mt-0.5'>{item.name}</h3>
                       </div>
-                      <div className='flex items-center justify-between text-[10px] text-zinc-400 pt-1'>
-                        <span>Fee: ₹{item.fees}</span>
-                        <span>Exp: {item.experience || '3+ Yrs'}</span>
+                      <div className='flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800/60'>
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">₹{item.fees}</span>
+                        <span>{item.experience || '3+ Yrs'}</span>
                       </div>
                     </div>
                   </div>
