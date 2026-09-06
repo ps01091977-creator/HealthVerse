@@ -137,7 +137,7 @@ const HomeFeatures = () => {
             to="/about"
             className="px-5 py-3 border border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-2xl text-[11px] font-extrabold hover:scale-[1.01] active:scale-[0.98] transition-all text-center w-full sm:w-auto"
           >
-            Learn About Novacare
+            Learn About HealthVerse
           </Link>
         </div>
 

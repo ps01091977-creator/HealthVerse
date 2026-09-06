@@ -91,13 +91,13 @@ export const doctors = [
         name: 'Dr. Richard James',
         image: doc1,
         speciality: 'General physician',
-        degree: 'MBBS',
-        experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
+        degree: 'MBBS, MD - General Medicine',
+        experience: '8 Years',
+        about: 'Dr. Richard James is a senior physician dedicated to comprehensive preventive medicine, chronic metabolic management, acute fever diagnostics, and holistic adult care.',
+        fees: 500,
         address: {
-            line1: '17th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '17th Cross, Richmond Road',
+            line2: 'Central Medical Plaza, New Delhi'
         }
     },
     {
@@ -105,13 +105,13 @@ export const doctors = [
         name: 'Dr. Emily Larson',
         image: doc2,
         speciality: 'Gynecologist',
-        degree: 'MBBS',
-        experience: '3 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 60,
+        degree: 'MBBS, MS - Obstetrics & Gynaecology',
+        experience: '6 Years',
+        about: 'Dr. Emily Larson specializes in prenatal care, maternal health, PCOS/PCOD therapy, minimally invasive laparoscopy, and high-risk pregnancy management.',
+        fees: 700,
         address: {
-            line1: '27th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '27th Cross, Koramangala',
+            line2: 'Mother & Child Health Center, Bangalore'
         }
     },
     {
@@ -119,13 +119,13 @@ export const doctors = [
         name: 'Dr. Sarah Patel',
         image: doc3,
         speciality: 'Dermatologist',
-        degree: 'MBBS',
-        experience: '1 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 30,
+        degree: 'MBBS, MD - Dermatology & Venereology',
+        experience: '5 Years',
+        about: 'Dr. Sarah Patel is a leading clinical dermatologist specializing in acne scar treatments, chronic psoriasis, hair loss PRP therapy, and cosmetic dermatology.',
+        fees: 650,
         address: {
-            line1: '37th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '37th Cross, Indiranagar',
+            line2: 'Dermal Care Aesthetics, Bangalore'
         }
     },
     {
@@ -133,13 +133,13 @@ export const doctors = [
         name: 'Dr. Christopher Lee',
         image: doc4,
         speciality: 'Pediatricians',
-        degree: 'MBBS',
-        experience: '2 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 40,
+        degree: 'MBBS, DCH, MD - Pediatrics',
+        experience: '7 Years',
+        about: 'Dr. Christopher Lee provides compassionate care for infants and children, covering pediatric vaccinations, growth milestones, and acute childhood infections.',
+        fees: 600,
         address: {
-            line1: '47th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '47th Cross, Bandra West',
+            line2: 'Junior Care Children Clinic, Mumbai'
         }
     },
     {
@@ -147,13 +147,13 @@ export const doctors = [
         name: 'Dr. Jennifer Garcia',
         image: doc5,
         speciality: 'Neurologist',
-        degree: 'MBBS',
-        experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
+        degree: 'MBBS, DM - Neurology',
+        experience: '9 Years',
+        about: 'Dr. Jennifer Garcia has deep clinical expertise in migraine management, stroke rehabilitation, neuropathies, epilepsy, and neurodegenerative disorders.',
+        fees: 900,
         address: {
-            line1: '57th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '57th Cross, Cyber City',
+            line2: 'Neuroscience Institute, Gurugram'
         }
     },
     {
@@ -161,13 +161,13 @@ export const doctors = [
         name: 'Dr. Andrew Williams',
         image: doc6,
         speciality: 'Neurologist',
-        degree: 'MBBS',
-        experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
+        degree: 'MBBS, MD, DM - Neurology',
+        experience: '11 Years',
+        about: 'Dr. Andrew Williams is a veteran neurological consultant specializing in neuromuscular disorders, sleep neurology, spine evaluation, and memory disorders.',
+        fees: 1000,
         address: {
-            line1: '57th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '88 Ring Road, Vasant Kunj',
+            line2: 'Apex Brain & Spine Center, New Delhi'
         }
     },
     {
@@ -175,13 +175,13 @@ export const doctors = [
         name: 'Dr. Christopher Davis',
         image: doc7,
         speciality: 'General physician',
-        degree: 'MBBS',
-        experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
+        degree: 'MBBS, MD - Internal Medicine',
+        experience: '10 Years',
+        about: 'Dr. Christopher Davis is renowned for diagnostic acumen in hypertension, diabetes management, metabolic syndromes, and geriatric health.',
+        fees: 550,
         address: {
-            line1: '17th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '12 Park Avenue, Connaught Place',
+            line2: 'Metro Health Polyclinic, New Delhi'
         }
     },
     {
@@ -189,13 +189,13 @@ export const doctors = [
         name: 'Dr. Timothy White',
         image: doc8,
         speciality: 'Gynecologist',
-        degree: 'MBBS',
-        experience: '3 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 60,
+        degree: 'MBBS, DGO, DNB - Obstetrics & Gynecology',
+        experience: '8 Years',
+        about: 'Dr. Timothy White provides specialized care in women’s wellness, fertility counseling, menstrual irregularities, and postpartum recovery.',
+        fees: 750,
         address: {
-            line1: '27th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '74 Green Park Main',
+            line2: 'NovaCare Women Health, New Delhi'
         }
     },
     {
@@ -203,13 +203,13 @@ export const doctors = [
         name: 'Dr. Ava Mitchell',
         image: doc9,
         speciality: 'Dermatologist',
-        degree: 'MBBS',
-        experience: '1 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 30,
+        degree: 'MBBS, MD - Dermatology',
+        experience: '4 Years',
+        about: 'Dr. Ava Mitchell focuses on pigmentary disorders, eczema, laser therapies, skin barrier restoration, and anti-aging treatments.',
+        fees: 600,
         address: {
-            line1: '37th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '19 Jubilee Hills',
+            line2: 'Luminous Skin Studio, Hyderabad'
         }
     },
     {
@@ -217,13 +217,13 @@ export const doctors = [
         name: 'Dr. Jeffrey King',
         image: doc10,
         speciality: 'Pediatricians',
-        degree: 'MBBS',
-        experience: '2 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 40,
+        degree: 'MBBS, MD - Pediatrics',
+        experience: '6 Years',
+        about: 'Dr. Jeffrey King excels in treating pediatric allergies, nutritional deficiencies, newborn screenings, and adolescent healthcare.',
+        fees: 550,
         address: {
-            line1: '47th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '31 MG Road',
+            line2: 'Rainbow Children Care, Pune'
         }
     },
     {
@@ -231,13 +231,13 @@ export const doctors = [
         name: 'Dr. Zoe Kelly',
         image: doc11,
         speciality: 'Neurologist',
-        degree: 'MBBS',
-        experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
+        degree: 'MBBS, MD, DM - Neurology',
+        experience: '5 Years',
+        about: 'Dr. Zoe Kelly is a dedicated neurologist specializing in autonomic nervous dysfunction, tension headaches, vertigo, and EEG diagnostics.',
+        fees: 850,
         address: {
-            line1: '57th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '9 South Extension Part II',
+            line2: 'NeuroVibe Care Clinic, New Delhi'
         }
     },
     {
@@ -245,13 +245,13 @@ export const doctors = [
         name: 'Dr. Patrick Harris',
         image: doc12,
         speciality: 'Gastroenterologist',
-        degree: 'MBBS',
-        experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
+        degree: 'MBBS, MD, DM - Gastroenterology',
+        experience: '9 Years',
+        about: 'Dr. Patrick Harris is an acclaimed specialist in acid reflux (GERD), irritable bowel syndrome (IBS), liver health, and therapeutic endoscopy.',
+        fees: 800,
         address: {
-            line1: '57th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '55 HSR Layout Sector 4',
+            line2: 'Digestive Health & Liver Clinic, Bangalore'
         }
     },
     {
@@ -259,41 +259,41 @@ export const doctors = [
         name: 'Dr. Chloe Evans',
         image: doc13,
         speciality: 'General physician',
-        degree: 'MBBS',
-        experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
+        degree: 'MBBS, MRCGP',
+        experience: '6 Years',
+        about: 'Dr. Chloe Evans provides evidence-based primary medical care, annual wellness checkups, viral illness treatment, and cardiovascular screening.',
+        fees: 500,
         address: {
-            line1: '17th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '82 Anna Nagar',
+            line2: 'City Family Wellness Clinic, Chennai'
         }
     },
     {
         _id: 'doc14',
         name: 'Dr. Ryan Martinez',
         image: doc14,
-        speciality: 'Gynecologist',
-        degree: 'MBBS',
-        experience: '3 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 60,
+        speciality: 'Dermatologist',
+        degree: 'MBBS, MD - Dermatology & Cosmetology',
+        experience: '7 Years',
+        about: 'Dr. Ryan Martinez specializes in skin allergy diagnostics, mole evaluations, anti-aging therapies, hair regrowth solutions, and scar revision.',
+        fees: 700,
         address: {
-            line1: '27th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '44 Marine Drive',
+            line2: 'OceanView Dermatology Center, Mumbai'
         }
     },
     {
         _id: 'doc15',
         name: 'Dr. Amelia Hill',
         image: doc15,
-        speciality: 'Dermatologist',
-        degree: 'MBBS',
-        experience: '1 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 30,
+        speciality: 'Gastroenterologist',
+        degree: 'MBBS, MD, DM - Gastroenterology & Hepatology',
+        experience: '8 Years',
+        about: 'Dr. Amelia Hill provides expert care in fatty liver disease, gastritis, food intolerances, gut microbiota balance, and colonoscopy.',
+        fees: 850,
         address: {
-            line1: '37th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
+            line1: '63 Whitefield Main Road',
+            line2: 'GastroHep Center of Excellence, Bangalore'
         }
-    },
+    }
 ]

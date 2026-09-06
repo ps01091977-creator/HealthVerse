@@ -107,62 +107,101 @@
 - Supports multiple payment methods:
   - **Cash Payment**
   - **Razorpay Integration**
-- Ensures a secure and smooth payment experience for users.
+## 🤖 AI-Powered Healthcare Assistant & Smart Appointments
+
+NovaCare includes an AI clinical assistant and intelligent appointment booking engine powered by **xAI Grok**, **Qdrant Vector Database**, **RAG (Retrieval-Augmented Generation)**, and **Inworld Voice / Web Speech Engine**.
+
+### AI Capabilities:
+1. **Conversational Clinical Guidance**: Empathic, safe triage assistant guiding users to appropriate medical specialties with strict medical safety guardrails (non-prescriptive, emergency escalation).
+2. **RAG (Retrieval-Augmented Generation)**: Grounded vector search over trusted NovaCare knowledge base documents, clinic policies, preparation checklists, and FAQs.
+3. **Qdrant Vector Search**: Cosine similarity search over indexed doctor profiles and medical documents with seamless in-memory fallback.
+4. **Natural Voice Input & Output**:
+   - **Speech-to-Text (STT)**: Real-time microphone audio recognition with animated listening waveform.
+   - **Text-to-Speech (TTS)**: Voice audio playback with Inworld AI integration and browser speech synthesis.
+5. **Backend Tool Calling & Smart Booking**:
+   - `searchDoctors`: Semantic doctor recommendations matching symptoms and specialties.
+   - `getAvailableSlots`: Real-time calendar slot retrieval.
+   - Multi-turn booking preview and explicit user confirmation dialogs.
+
+---
+
+## 🔑 AI Environment Variables (`backend/.env`)
+
+```env
+# Primary LLM Provider (xAI Grok)
+GROK_API_KEY=your_xai_grok_api_key
+
+# Qdrant Vector Database
+QDRANT_URL=http://localhost:6333 # or https://your-cluster.cloud.qdrant.io:6333
+QDRANT_API_KEY=your_qdrant_api_key
+
+# Embedding Model Provider (OpenAI text-embedding-3-small)
+EMBEDDING_API_KEY=your_openai_or_embedding_key
+
+# Inworld AI Voice (STT & TTS)
+INWORLD_API_KEY=your_inworld_key
+INWORLD_API_SECRET=your_inworld_secret
+INWORLD_SCENE=your_inworld_scene_or_character
+```
+
+---
 
 ## 🌐 Project Setup
 
-To set up and run this project locally:
+To run NovaCare locally:
 
-1. **Clone the Repository**:
+1. **Backend**:
    ```bash
-   git clone https://github.com/your-username/appointy.git
-   cd appointy
-   ```
-
-2. **Install Dependencies**:
-   ```bash
+   cd backend
    npm install
-   cd client
-   npm install
-   ```
-
-3. **Environment Variables**:
-   - Create a `.env` file in the root directory and add the following:
-     ```env
-     MONGO_URI=your_mongodb_connection_string
-     JWT_SECRET=your_jwt_secret
-     STRIPE_API_KEY=your_stripe_api_key
-     RAZORPAY_API_KEY=your_razorpay_api_key
-     ```
-
-4. **Run the Application**:
-   ```bash
    npm run dev
    ```
+   *Runs on `http://localhost:8080`*
+
+2. **Frontend Patient Portal**:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+   *Runs on `http://localhost:5173`*
+
+3. **Admin & Doctor Portal**:
+   ```bash
+   cd admin
+   npm install
+   npm run dev
+   ```
+   *Runs on `http://localhost:5180`*
+
+---
 
 ## 📦 Folder Structure
 
 ```plaintext
 appointy/
-├── client/          # Frontend (React.js)
-├── server/          # Backend (Node.js, Express.js)
-├── models/          # MongoDB Schemas
-├── controllers/     # API Controllers
-├── routes/          # API Routes
-├── middleware/      # Authentication and Error Handling
-├── config/          # Configuration Files
-├── utils/           # Utility Functions
-├── public/          # Static Files
-└── .env             # Environment Variables
+├── backend/
+│   ├── ai/
+│   │   ├── config/          # Qdrant client connection
+│   │   ├── controllers/     # AI chat, voice, and knowledge sync controllers
+│   │   ├── knowledge/       # Trusted medical KB and doctor seed documents
+│   │   ├── prompts/         # Clinical safety and system prompts
+│   │   ├── routes/          # /api/ai endpoints
+│   │   └── services/        # Grok, Qdrant, Embedding, RAG, Tools & Inworld services
+│   ├── controllers/         # Core API controllers
+│   ├── models/              # MongoDB Schemas
+│   └── routes/              # Express API Routes
+├── frontend/
+│   ├── src/
+│   │   ├── components/      # AiVoiceChat, SymptomChecker, Navbar, TopDoctors
+│   │   ├── pages/           # AiHub, Doctors, MyAppointment, PharmacyShop
+│   │   └── context/         # AppContext
+└── admin/                   # Doctor & Admin Portal
 ```
 
 ## 🤝 Contributing
-
-We welcome contributions! Please feel free to submit issues, fork the repository, and open pull requests.
-
+We welcome contributions! Feel free to submit issues or pull requests.
 
 ## 🌟 Acknowledgements
+Thanks to the open-source community, xAI Grok, Qdrant, Inworld AI, MongoDB, Express, React, and Node.js.
 
-- Thanks to the developers and contributors of MongoDB, Express.js, React.js, Node.js, Stripe, and Razorpay for their fantastic tools and libraries.
-
----

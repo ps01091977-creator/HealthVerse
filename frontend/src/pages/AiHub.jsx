@@ -18,6 +18,8 @@ import {
   Clock
 } from 'lucide-react'
 
+import AiVoiceChat from '../components/AiVoiceChat'
+
 const AiHub = () => {
   const { backendUrl, token } = useContext(AppContext)
 
@@ -211,47 +213,10 @@ const AiHub = () => {
       {/* Main workspace cards */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-6 shadow-sm min-h-[50vh] flex flex-col">
         
-        {/* MODULE 1: MEDICAL CHATBOT */}
+        {/* MODULE 1: CONVERSATIONAL VOICE & RAG CHATBOT */}
         {activeModule === 'chatbot' && (
-          <div className="flex flex-col flex-1 justify-between h-[450px]">
-            {/* Chat list */}
-            <div className="flex-1 overflow-y-auto space-y-3 p-2 bg-zinc-50 dark:bg-zinc-950 rounded-2xl mb-4 border border-zinc-200/30 max-h-[360px] no-scrollbar">
-              {chatHistory.map((msg, i) => (
-                <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`p-3 rounded-xl max-w-md text-xs leading-relaxed ${
-                    msg.sender === 'user' 
-                      ? 'bg-primary text-white font-medium' 
-                      : 'bg-white dark:bg-zinc-900 border text-zinc-850 dark:text-zinc-200'
-                  }`}>
-                    {msg.text}
-                  </div>
-                </div>
-              ))}
-              {isChatLoading && (
-                <div className="flex justify-start">
-                  <div className="p-3 bg-white dark:bg-zinc-900 border rounded-xl text-xs text-zinc-400 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 animate-spin" /> Thinking...
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Input bar */}
-            <form onSubmit={handleSendChat} className="flex gap-2 items-center">
-              <input
-                type="text"
-                value={chatMessage}
-                onChange={(e) => setChatMessage(e.target.value)}
-                placeholder="Ask about general symptoms, healthy behaviors, or clinical indicators..."
-                className="flex-1 p-2.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs focus:outline-none"
-              />
-              <button 
-                type="submit" 
-                className="p-2.5 bg-primary text-white rounded-xl shadow-sm hover:scale-[1.02] transition-all cursor-pointer"
-              >
-                <Send className="w-4.5 h-4.5" />
-              </button>
-            </form>
+          <div className="w-full">
+            <AiVoiceChat mode="page" />
           </div>
         )}
 
@@ -260,6 +225,8 @@ const AiHub = () => {
           <div className="space-y-6">
             <form onSubmit={handleMedSearch} className="flex gap-2 max-w-md">
               <input
+                id="med-search-input"
+                name="medQuery"
                 type="text"
                 placeholder="Enter medicine name (e.g. Metformin, Paracetamol)..."
                 value={medQuery}
@@ -335,8 +302,10 @@ const AiHub = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-zinc-600">What are your health goals?</label>
+                <label htmlFor="diet-goal-input" className="font-bold text-zinc-600">What are your health goals?</label>
                 <input
+                  id="diet-goal-input"
+                  name="dietGoal"
                   type="text"
                   placeholder="e.g. Lose weight, stabilize insulin levels"
                   value={dietGoal}

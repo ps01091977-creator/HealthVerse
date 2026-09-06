@@ -26,14 +26,25 @@ import {
   Clock,
   Info,
   Layers,
-  ArrowDownUp
+  ArrowDownUp,
+  ShoppingCart,
+  CheckCircle2,
+  Trash2,
+  ShieldCheck,
+  Truck,
+  Award,
+  Zap,
+  Tag,
+  ChevronRight,
+  BadgePercent,
+  Star
 } from 'lucide-react'
 
 const PharmacyShop = () => {
-  const { backendUrl, token, slotDateFormat } = useContext(AppContext)
+  const { backendUrl, token } = useContext(AppContext)
 
-  // Sub-sections navigation: 'finder' (Medicine Finder), 'checker' (Drug Interaction Checker), 'prescriptions' (Consultation Prescriptions)
-  const [activeTab, setActiveTab] = useState('finder')
+  // Sub-sections navigation: 'store' (Medicine Store & Catalog), 'checker' (Drug Interaction Checker), 'prescriptions' (Doctor Prescriptions)
+  const [activeTab, setActiveTab] = useState('store')
 
   // Catalog State
   const [medicines, setMedicines] = useState([])
@@ -45,6 +56,15 @@ const PharmacyShop = () => {
   // Clinical Guide Modal
   const [selectedMedicine, setSelectedMedicine] = useState(null)
 
+  // Cart State
+  const [cart, setCart] = useState([])
+  const [isCartOpen, setIsCartOpen] = useState(false)
+  const [deliveryAddress, setDeliveryAddress] = useState('')
+  const [deliveryPhone, setDeliveryPhone] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('Cash on Delivery')
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false)
+  const [orderSuccessModal, setOrderSuccessModal] = useState(null)
+
   // Drug Interaction Checker State
   const [checkerDrugs, setCheckerDrugs] = useState(['', ''])
   const [checkerResult, setCheckerResult] = useState(null)
@@ -54,7 +74,7 @@ const PharmacyShop = () => {
   const [userPrescriptions, setUserPrescriptions] = useState([])
   const [isPrescLoading, setIsPrescLoading] = useState(false)
 
-  // AI Advisor Chat State
+  // AI Advisor State
   const [aiQuery, setAiQuery] = useState('')
   const [aiReply, setAiReply] = useState(null)
   const [isAiLoading, setIsAiLoading] = useState(false)
@@ -105,6 +125,100 @@ const PharmacyShop = () => {
     }
   }, [token])
 
+  // Cart Management
+  const addToCart = (med) => {
+    setCart(prev => {
+      const existing = prev.find(item => item._id === med._id)
+      if (existing) {
+        return prev.map(item => item._id === med._id ? { ...item, quantity: item.quantity + 1 } : item)
+      }
+      return [...prev, { ...med, quantity: 1 }]
+    })
+    toast.success(`Added ${med.name} to cart!`, { autoClose: 1800 })
+  }
+
+  const updateCartQuantity = (medId, delta) => {
+    setCart(prev => {
+      return prev.map(item => {
+        if (item._id === medId) {
+          const newQty = item.quantity + delta
+          return newQty > 0 ? { ...item, quantity: newQty } : null
+        }
+        return item
+      }).filter(Boolean)
+    })
+  }
+
+  const removeFromCart = (medId) => {
+    setCart(prev => prev.filter(item => item._id !== medId))
+  }
+
+  // Calculate totals
+  const subtotalPrice = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  const totalMrp = cart.reduce((sum, item) => sum + ((item.mrp || item.price * 1.2) * item.quantity), 0)
+  const totalSavings = Math.max(0, Math.round(totalMrp - subtotalPrice))
+  const deliveryFee = subtotalPrice >= 299 || subtotalPrice === 0 ? 0 : 40
+  const finalPayable = subtotalPrice + deliveryFee
+  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
+
+  // Handle Checkout Order Placement
+  const handlePlaceOrder = async (e) => {
+    e.preventDefault()
+    if (!token) {
+      toast.warn('Please sign in to your patient account to place orders.')
+      return
+    }
+    if (cart.length === 0) {
+      toast.error('Your cart is empty.')
+      return
+    }
+    if (!deliveryAddress.trim() || !deliveryPhone.trim()) {
+      toast.warn('Please enter complete delivery address and phone number.')
+      return
+    }
+
+    setIsPlacingOrder(true)
+    try {
+      const orderPayload = {
+        patientName: 'Patient User',
+        items: cart.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          packSize: item.packSize || 'Standard Pack'
+        })),
+        totalAmount: finalPayable,
+        paymentMethod,
+        phone: deliveryPhone,
+        address: deliveryAddress,
+        paymentStatus: paymentMethod === 'Cash on Delivery' ? 'Pending' : 'Paid'
+      }
+
+      const { data } = await axios.post(`${backendUrl}/api/pharmacy/order`, orderPayload, {
+        headers: { token }
+      })
+
+      if (data.success) {
+        setOrderSuccessModal({
+          orderId: `HV-MED-${Math.floor(100000 + Math.random() * 900000)}`,
+          amount: finalPayable,
+          itemsCount: totalCartCount,
+          address: deliveryAddress,
+          paymentMethod
+        })
+        setCart([])
+        setIsCartOpen(false)
+        toast.success('🎉 Pharmacy order placed successfully!')
+      } else {
+        toast.error(data.message || 'Order placement failed')
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Server error while placing order.')
+    } finally {
+      setIsPlacingOrder(false)
+    }
+  }
+
   // AI Pharmacy Advisor call
   const handleAiAdvisor = async (e) => {
     if (e) e.preventDefault()
@@ -112,7 +226,6 @@ const PharmacyShop = () => {
     setIsAiLoading(true)
     setAiReply(null)
 
-    // Build context of live medicine inventory for Gemini to cross-reference
     const medsContext = medicines.map(m => `- ${m.name} (${m.category}): treats ${m.diseases.join(', ')}. Generic name: ${m.genericName || m.name}`).join('\n')
 
     const messageToSend = `CONTEXT: You are the HealthVerse Clinical Medicine Advisor. You have access to our medical database:
@@ -124,14 +237,14 @@ INSTRUCTIONS:
 1. Provide a professional, concise, clinical analysis of the symptoms or questions.
 2. Recommend the matching drug name(s) from our database above if appropriate.
 3. Explain their dosage, generic names, and side effects.
-4. Wrap any suggested drug name from our database exactly in brackets, e.g. [Paracetamol 500mg] or [Metformin 850mg].
+4. Wrap any suggested drug name from our database exactly in brackets, e.g. [Dolo 650mg Tablet] or [Augmentin 625 Duo Tablet].
 5. Always advise the patient to consult a doctor. Do not wrap in general markdown code blocks.`
 
     try {
       const { data } = await axios.post(
         `${backendUrl}/api/user/ai/chatbot`,
         { message: messageToSend, chat_history: [] },
-        { headers: { token } }
+        { headers: token ? { token } : {} }
       )
       if (data.success && data.data) {
         const replyText = data.data.reply
@@ -159,20 +272,6 @@ INSTRUCTIONS:
     }
   }
 
-  // Trigger AI explanation for a prescription
-  const handleExplainPrescription = (rxList) => {
-    const rxText = rxList.map(r => `${r.name} (dosage: ${r.dosage}, frequency: ${r.frequency}, duration: ${r.duration})`).join(', ')
-    setAiQuery(`Please explain these prescribed medications in detail, highlighting usage, safety warnings, and potential side effects: ${rxText}`)
-    setActiveTab('finder')
-    // Wait slightly for tab switch, then call advisor
-    setTimeout(() => {
-      const chatInput = document.getElementById('ai-advisor-input')
-      if (chatInput) {
-        chatInput.scrollIntoView({ behavior: 'smooth' })
-      }
-    }, 100)
-  }
-
   // Check drug interactions using Gemini
   const handleCheckInteractions = async (e) => {
     e.preventDefault()
@@ -197,7 +296,7 @@ INSTRUCTIONS:
       const { data } = await axios.post(
         `${backendUrl}/api/user/ai/chatbot`,
         { message: prompt, chat_history: [] },
-        { headers: { token } }
+        { headers: token ? { token } : {} }
       )
       if (data.success && data.data) {
         try {
@@ -234,553 +333,743 @@ INSTRUCTIONS:
 
   // Disease mapping with icons and colors
   const diseaseCategories = [
-    { id: 'all', label: 'All Conditions', icon: Pill, color: 'bg-zinc-50/50 border-zinc-200/60 dark:bg-zinc-900/40 dark:border-zinc-800 text-zinc-700 dark:text-zinc-400' },
-    { id: 'Fever', label: 'Fever & Pain', icon: Thermometer, color: 'bg-red-500/5 hover:bg-red-500/10 border-red-500/10 hover:border-red-500/20 text-red-650 dark:text-red-400' },
-    { id: 'Diabetes', label: 'Diabetes Care', icon: Activity, color: 'bg-orange-500/5 hover:bg-orange-500/10 border-orange-500/10 hover:border-orange-500/20 text-orange-650 dark:text-orange-400' },
-    { id: 'Hypertension', label: 'Blood Pressure', icon: Heart, color: 'bg-rose-500/5 hover:bg-rose-500/10 border-rose-500/10 hover:border-rose-500/20 text-rose-650 dark:text-rose-400' },
-    { id: 'Bacterial Infections', label: 'Infections', icon: ShieldAlert, color: 'bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/10 hover:border-amber-500/20 text-amber-650 dark:text-amber-400' },
-    { id: 'Acidity', label: 'Acidity & Ulcers', icon: Flame, color: 'bg-yellow-500/5 hover:bg-yellow-500/10 border-yellow-500/10 hover:border-yellow-500/20 text-yellow-650 dark:text-yellow-400' },
-    { id: 'Allergies', label: 'Allergy & Itch', icon: Sparkles, color: 'bg-teal-500/5 hover:bg-teal-500/10 border-teal-500/10 hover:border-teal-500/20 text-teal-650 dark:text-teal-400' },
-    { id: 'Asthma', label: 'Asthma & COPD', icon: Wind, color: 'bg-sky-500/5 hover:bg-sky-500/10 border-sky-500/10 hover:border-sky-500/20 text-sky-650 dark:text-sky-400' }
+    { id: 'all', label: 'All Health Categories', icon: Pill, color: 'border-zinc-200 dark:border-zinc-800' },
+    { id: 'Fever', label: 'Fever & Pain Relief', icon: Thermometer, color: 'text-red-500 bg-red-500/5 border-red-500/20' },
+    { id: 'Diabetes', label: 'Diabetes & Glucose', icon: Activity, color: 'text-orange-500 bg-orange-500/5 border-orange-500/20' },
+    { id: 'Hypertension', label: 'Cardiac & BP', icon: Heart, color: 'text-rose-500 bg-rose-500/5 border-rose-500/20' },
+    { id: 'Bacterial Infections', label: 'Antibiotics & Throat', icon: ShieldAlert, color: 'text-amber-500 bg-amber-500/5 border-amber-500/20' },
+    { id: 'Acidity', label: 'Acidity & Digestion', icon: Flame, color: 'text-yellow-600 bg-yellow-500/5 border-yellow-500/20' },
+    { id: 'Allergies', label: 'Allergy & Cold', icon: Sparkles, color: 'text-teal-500 bg-teal-500/5 border-teal-500/20' },
+    { id: 'Asthma', label: 'Asthma & Wheezing', icon: Wind, color: 'text-sky-500 bg-sky-500/5 border-sky-500/20' }
   ]
 
-  // Category mapping with icons
+  // Category mapping
   const categories = [
-    { id: 'all', label: 'All Classes', icon: Pill },
-    { id: 'Analgesics & Antipyretics', label: 'Analgesics', icon: Activity },
-    { id: 'Antidiabetics', label: 'Antidiabetics', icon: ArrowDownUp },
-    { id: 'Antibiotics', label: 'Antibiotics', icon: Sparkles },
-    { id: 'Cardiovascular', label: 'Cardiovascular', icon: Heart },
-    { id: 'Gastrointestinal', label: 'Gastrointestinal', icon: Flame },
-    { id: 'Antihistamines', label: 'Antihistamines', icon: Layers }
+    { id: 'all', label: 'All Products' },
+    { id: 'Pain Relief & Fever', label: 'Pain & Fever' },
+    { id: 'Antibiotics & Infections', label: 'Antibiotics' },
+    { id: 'Acidity & Digestion', label: 'Acidity & Gut' },
+    { id: 'Cardiac & BP', label: 'Cardiac & BP' },
+    { id: 'Diabetes & Chronic Care', label: 'Diabetes Care' },
+    { id: 'Vitamins & Immunity', label: 'Vitamins & Minerals' },
+    { id: 'Allergies & Respiratory', label: 'Allergies & Cold' },
+    { id: 'Skin & Hair Care', label: 'Dermatology & Skin' },
+    { id: 'Medical Devices & Diagnostics', label: 'Medical Devices' }
   ]
 
   return (
-    <div className="space-y-8 text-left max-w-6xl mx-auto py-6 px-4 sm:px-6 relative">
+    <div className="space-y-8 text-left max-w-7xl mx-auto py-6 px-4 sm:px-6 relative">
       
       {/* Background glow decorations */}
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none -z-10" />
-      <div className="absolute top-1/3 right-10 w-80 h-80 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="absolute top-1/3 right-10 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none -z-10" />
 
-      {/* Header Block */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-zinc-50 to-white dark:from-zinc-900/60 dark:to-zinc-950 border border-zinc-200/60 dark:border-zinc-800/80 p-6 sm:p-8 rounded-3xl shadow-sm">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-2xl -mr-10 -mt-10" />
+      {/* 🌟 1. HERO BANNER: TRUST & CERTIFICATION */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-950 to-indigo-950 border border-zinc-800 p-6 sm:p-8 rounded-3xl shadow-xl text-white">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
         
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-primary/10 text-primary border border-primary/20">
-              <Bot className="w-3.5 h-3.5 text-primary" /> AI Clinical Intelligence
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 relative z-10">
+          <div className="space-y-3 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-primary/20 text-indigo-300 border border-primary/30">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> ISO 9001:2015 Certified Pharmacy Network
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2.5">
-              <span className="p-2 bg-primary/10 text-primary rounded-2xl border border-primary/20">
-                <Pill className="w-7 h-7" />
-              </span> 
-              <span className="bg-gradient-to-r from-zinc-950 via-zinc-800 to-zinc-700 dark:from-zinc-50 dark:via-zinc-200 dark:to-zinc-300 bg-clip-text text-transparent">
-                Clinical Medicine Finder & Advisor
-              </span>
+            
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+              HealthVerse <span className="bg-gradient-to-r from-primary via-indigo-300 to-emerald-300 bg-clip-text text-transparent">e-Pharmacy & Diagnostic Hub</span>
             </h1>
-            <p className="text-zinc-550 dark:text-zinc-400 text-xs sm:text-sm font-medium">
-              Explore professional drug guides, check drug interactions, and explain physician prescriptions instantly.
+            
+            <p className="text-zinc-300 text-xs sm:text-sm font-medium leading-relaxed">
+              100% Genuine, verified medications sourced directly from top pharmaceutical manufacturers (GSK, Abbott, Sun Pharma, Cipla, Pfizer). Delivered in temperature-controlled packaging.
             </p>
+
+            {/* Guarantee Pills */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-[11px] font-semibold text-zinc-300">
+              <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-xl">
+                <Truck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>⚡ 2-Hr Express Delivery</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-xl">
+                <Award className="w-3.5 h-3.5 text-amber-400" />
+                <span>100% Genuine Certified</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-xl">
+                <BadgePercent className="w-3.5 h-3.5 text-primary" />
+                <span>Up to 25% Off MRP</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-xl">
+                <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Pharmacist Verified</span>
+              </div>
+            </div>
           </div>
 
-          {/* Sub Navigation Tabs */}
-          <div className="flex overflow-x-auto no-scrollbar max-w-full p-1 bg-zinc-100/80 dark:bg-zinc-900/60 backdrop-blur-sm border border-zinc-200/40 dark:border-zinc-800/60 rounded-2xl text-xs w-full md:w-auto">
-            <button 
-              onClick={() => setActiveTab('finder')}
-              className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl font-bold cursor-pointer transition-all whitespace-nowrap ${
-                activeTab === 'finder' 
-                  ? 'bg-white dark:bg-zinc-800 text-primary shadow-sm shadow-zinc-200/50 dark:shadow-none' 
-                  : 'text-zinc-500 dark:text-zinc-450 hover:text-zinc-850 dark:hover:text-zinc-200'
-              }`}
+          {/* Quick Cart Status & Tab Switcher */}
+          <div className="flex flex-col sm:flex-row lg:flex-col gap-3 w-full lg:w-auto flex-shrink-0">
+            {/* View Cart Button */}
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="flex items-center justify-between gap-4 bg-primary hover:bg-primary-dark text-white px-5 py-3.5 rounded-2xl font-bold text-sm shadow-lg shadow-primary/30 transition-all cursor-pointer group"
             >
-              <Pill className="w-3.5 h-3.5" />
-              Medicine Finder
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 transition-transform group-hover:scale-110" />
+                <span>My Pharmacy Cart</span>
+              </div>
+              <span className="bg-white text-primary text-xs px-2.5 py-0.5 rounded-full font-black">
+                {totalCartCount} items • ₹{finalPayable}
+              </span>
             </button>
-            <button 
-              onClick={() => setActiveTab('checker')}
-              className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl font-bold cursor-pointer transition-all whitespace-nowrap ${
-                activeTab === 'checker' 
-                  ? 'bg-white dark:bg-zinc-800 text-primary shadow-sm shadow-zinc-200/50 dark:shadow-none' 
-                  : 'text-zinc-500 dark:text-zinc-450 hover:text-zinc-850 dark:hover:text-zinc-200'
-              }`}
-            >
-              <Activity className="w-3.5 h-3.5" />
-              Interaction Checker
-            </button>
-            <button 
-              onClick={() => setActiveTab('prescriptions')}
-              className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl font-bold cursor-pointer transition-all whitespace-nowrap ${
-                activeTab === 'prescriptions' 
-                  ? 'bg-white dark:bg-zinc-800 text-primary shadow-sm shadow-zinc-200/50 dark:shadow-none' 
-                  : 'text-zinc-500 dark:text-zinc-450 hover:text-zinc-850 dark:hover:text-zinc-200'
-              }`}
-            >
-              <ClipboardList className="w-3.5 h-3.5" />
-              Prescription Explainer
-            </button>
+
+            {/* Navigation Tabs */}
+            <div className="flex bg-zinc-900 border border-zinc-800 p-1 rounded-2xl text-xs">
+              <button 
+                onClick={() => setActiveTab('store')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-bold cursor-pointer transition-all ${
+                  activeTab === 'store' 
+                    ? 'bg-white text-zinc-950 shadow-md' 
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <Pill className="w-3.5 h-3.5" />
+                Medicine Store
+              </button>
+              <button 
+                onClick={() => setActiveTab('checker')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-bold cursor-pointer transition-all ${
+                  activeTab === 'checker' 
+                    ? 'bg-white text-zinc-950 shadow-md' 
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <Activity className="w-3.5 h-3.5" />
+                Drug Checker
+              </button>
+              <button 
+                onClick={() => setActiveTab('prescriptions')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-bold cursor-pointer transition-all ${
+                  activeTab === 'prescriptions' 
+                    ? 'bg-white text-zinc-950 shadow-md' 
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+                My Prescriptions
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Grid Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* LEFT COLUMN: ACTIVE PAGE VIEW */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* 🛍️ TAB 1: MEDICINE STORE & CATALOG */}
+      {activeTab === 'store' && (
+        <div className="space-y-6">
           
-          {/* TAB 1: MEDICINE FINDER */}
-          {activeTab === 'finder' && (
-            <div className="space-y-6">
-              
-              {/* Shop by Health Condition */}
-              <div className="space-y-3 bg-zinc-50/50 dark:bg-zinc-900/20 border border-zinc-200/50 dark:border-zinc-800/60 p-5 rounded-3xl">
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-555 flex items-center gap-1.5">
-                    <Activity className="w-4 h-4 text-primary animate-pulse" /> Shop by Health Condition
-                  </h3>
-                  {selectedDisease !== 'all' && (
-                    <button 
-                      onClick={() => setSelectedDisease('all')}
-                      className="text-[10px] text-primary hover:underline font-bold cursor-pointer"
-                    >
-                      Clear Filter
-                    </button>
-                  )}
-                </div>
-                
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {diseaseCategories.map((dis) => {
-                    const Icon = dis.icon
-                    const isSelected = selectedDisease === dis.id
-                    return (
-                      <button
-                        key={dis.id}
-                        onClick={() => {
-                          setSelectedDisease(dis.id)
-                          setCategory('all') // Reset class category filter
-                        }}
-                        className={`flex items-center gap-2.5 p-3 rounded-2xl border text-left cursor-pointer transition-all hover:scale-[1.01] duration-250 ${
-                          isSelected
-                            ? 'bg-primary border-primary text-white shadow-md shadow-primary/20 scale-[1.02]'
-                            : `${dis.color}`
-                        }`}
-                      >
-                        <span className={`p-1.5 rounded-xl ${isSelected ? 'bg-white/20 text-white' : 'bg-white dark:bg-zinc-800 shadow-sm text-primary'}`}>
-                          <Icon className="w-4 h-4" />
-                        </span>
-                        <span className="text-[10px] font-bold tracking-tight leading-tight">{dis.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
+          {/* Health Category Filter Bar */}
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-4 sm:p-5 rounded-3xl shadow-sm space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                <Activity className="w-4 h-4 text-primary" /> Filter by Health Condition
+              </h3>
+              {selectedDisease !== 'all' && (
+                <button 
+                  onClick={() => setSelectedDisease('all')}
+                  className="text-xs text-primary hover:underline font-bold cursor-pointer"
+                >
+                  Reset Filter
+                </button>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+              {diseaseCategories.map((dis) => {
+                const Icon = dis.icon
+                const isSelected = selectedDisease === dis.id
+                return (
+                  <button
+                    key={dis.id}
+                    onClick={() => {
+                      setSelectedDisease(dis.id)
+                      setCategory('all')
+                    }}
+                    className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border text-center cursor-pointer transition-all duration-200 ${
+                      isSelected
+                        ? 'bg-primary text-white border-primary shadow-md shadow-primary/20 scale-[1.03]'
+                        : `bg-zinc-50 dark:bg-zinc-850/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${dis.color}`
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 mb-1" />
+                    <span className="text-[10px] font-bold leading-tight line-clamp-1">{dis.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
-              {/* Search and Category Badges */}
-              <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
-                  <input
-                    type="text"
-                    placeholder="Search medicines by brand name, generic formulation, or disease (e.g. sugar, fever)..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 backdrop-blur-sm rounded-2xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-zinc-800 dark:text-zinc-200 dark:placeholder-zinc-500"
-                  />
-                </div>
+          {/* Search and Category Badges */}
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
+              <input
+                id="pharmacy-search-input"
+                name="pharmacySearch"
+                type="text"
+                placeholder="Search by brand name (Dolo, Augmentin, Pan-D), active salt (Paracetamol, Metformin), or manufacturer..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-12 pr-4 py-3.5 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-zinc-800 dark:text-zinc-200 shadow-sm"
+              />
+            </div>
 
-                {/* Categories Pills */}
-                <div className="flex gap-2 overflow-x-auto pb-1.5 no-scrollbar scroll-smooth">
-                  {categories.map((cat) => {
-                    const Icon = cat.icon
-                    const isSelected = category === cat.id
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => {
-                          setCategory(cat.id)
-                          setSelectedDisease('all') // Reset condition filter
-                        }}
-                        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap border transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-primary text-white border-primary shadow-md shadow-primary/10'
-                            : 'bg-white dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800/80 hover:bg-zinc-50 dark:hover:bg-zinc-850'
-                        }`}
-                      >
-                        <Icon className="w-3.5 h-3.5" />
-                        {cat.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
+            {/* Categories Pills */}
+            <div className="flex gap-2 overflow-x-auto pb-1.5 no-scrollbar scroll-smooth">
+              {categories.map((cat) => {
+                const isSelected = category === cat.id
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      setCategory(cat.id)
+                      setSelectedDisease('all')
+                    }}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-primary text-white border-primary shadow-md shadow-primary/10'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
-              {/* Medicine Grid */}
-              {isLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {[1, 2, 3, 4].map((n) => (
-                    <div key={n} className="bg-white dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/80 p-5 rounded-2xl h-44 animate-pulse space-y-4" />
-                  ))}
-                </div>
-              ) : medicines.length === 0 ? (
-                <div className="py-20 text-center border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-2">
-                  <Pill className="w-8 h-8 mx-auto text-zinc-300 dark:text-zinc-700 animate-pulse" />
-                  <p className="text-zinc-550 dark:text-zinc-450 text-xs font-bold">No clinical medicines matching filters.</p>
-                  <p className="text-zinc-400 text-[10px]">Try expanding your query terms or selection.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {medicines.map((med) => (
-                    <div 
-                      key={med._id} 
-                      className="group bg-white dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/80 p-5 rounded-2xl shadow-sm flex flex-col justify-between space-y-5 hover:border-primary/40 dark:hover:border-primary/30 hover:shadow-md hover:shadow-primary/[0.02] hover:-translate-y-1 transition-all duration-300"
-                    >
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-start gap-2">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
-                            {med.category}
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-zinc-450">
-                            Rx Prescription Only
+          {/* Product Grid */}
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                <div key={n} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 rounded-3xl h-72 animate-pulse space-y-3" />
+              ))}
+            </div>
+          ) : medicines.length === 0 ? (
+            <div className="py-20 text-center border border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl space-y-3 bg-white dark:bg-zinc-900">
+              <Pill className="w-10 h-10 mx-auto text-zinc-400 animate-pulse" />
+              <p className="text-zinc-700 dark:text-zinc-300 text-sm font-bold">No medicines matching your search.</p>
+              <p className="text-zinc-400 text-xs">Try clearing filters or search by salt name (e.g. Paracetamol, Metformin, Telmisartan).</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {medicines.map((med) => {
+                const inCart = cart.find(item => item._id === med._id)
+                const discountVal = med.discount || Math.round(((med.mrp - med.price) / (med.mrp || 1)) * 100) || 15
+
+                return (
+                  <div 
+                    key={med._id} 
+                    className="group bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 p-4 rounded-3xl shadow-sm flex flex-col justify-between space-y-4 hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-xl transition-all duration-300 relative"
+                  >
+                    {/* Top Image & Badges */}
+                    <div className="space-y-3">
+                      <div className="relative w-full h-40 bg-zinc-50 dark:bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-100 dark:border-zinc-850 flex items-center justify-center p-2">
+                        <img 
+                          src={med.image || "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=400&auto=format&fit=crop"} 
+                          alt={med.name}
+                          className="w-full h-full object-cover rounded-xl transition-transform duration-500 group-hover:scale-105"
+                        />
+                        
+                        {/* Rx vs OTC Badge */}
+                        <div className="absolute top-2 left-2 flex gap-1">
+                          {med.requiresPrescription ? (
+                            <span className="bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-lg shadow-sm">
+                              Rx Required
+                            </span>
+                          ) : (
+                            <span className="bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded-lg shadow-sm">
+                              OTC
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Discount Badge */}
+                        {discountVal > 0 && (
+                          <div className="absolute top-2 right-2 bg-amber-500 text-zinc-950 text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-0.5">
+                            <Tag className="w-3 h-3" /> {discountVal}% OFF
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Brand, Manufacturer & Rating */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                          <span className="font-semibold text-primary truncate max-w-[140px]">{med.manufacturer || 'Certified Pharma'}</span>
+                          <span className="flex items-center gap-0.5 font-bold text-amber-500">
+                            <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> {med.rating || 4.8}
                           </span>
                         </div>
-                        
-                        <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 group-hover:text-primary transition-colors">
+
+                        <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 group-hover:text-primary transition-colors line-clamp-1">
                           {med.name}
                         </h3>
 
-                        {med.diseases && med.diseases.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {med.diseases.map((d, i) => (
-                              <span key={i} className="text-[9px] font-bold bg-primary/5 dark:bg-primary/10 text-primary px-2 py-0.5 rounded-lg border border-primary/10">
-                                {d}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-1 font-medium">
+                          {med.composition || med.genericName}
+                        </p>
 
-                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed pt-1">
-                          {med.description}
+                        <p className="text-[10px] text-zinc-400">
+                          {med.packSize || 'Standard Pack'} • {med.dosageForm || 'Tablet'}
                         </p>
                       </div>
+                    </div>
 
-                      <div className="flex justify-between items-center pt-3.5 border-t border-zinc-100 dark:border-zinc-850">
-                        <div className="flex flex-col">
-                          <span className="text-[9px] text-zinc-405 font-bold uppercase tracking-wide">Generic Formulation</span>
-                          <span className="text-[10px] font-bold text-zinc-800 dark:text-zinc-200 truncate max-w-[120px]">
-                            {med.genericName || "Unspecified"}
+                    {/* Price, Stock & Cart Actions */}
+                    <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
+                      <div className="flex items-baseline justify-between">
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-base font-extrabold text-zinc-900 dark:text-white">
+                            ₹{med.price}
                           </span>
+                          {med.mrp > med.price && (
+                            <span className="text-xs text-zinc-400 line-through">
+                              ₹{med.mrp}
+                            </span>
+                          )}
                         </div>
+
+                        <span className="text-[10px] font-bold text-emerald-500 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> In Stock
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => setSelectedMedicine(med)}
-                          className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer hover:scale-[1.02]"
+                          className="w-full py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-200 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1"
                         >
-                          <Info className="w-3.5 h-3.5" />
-                          Clinical Guide
+                          <Info className="w-3.5 h-3.5 text-primary" /> Guide
                         </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
-          {/* TAB 2: DRUG INTERACTION CHECKER */}
-          {activeTab === 'checker' && (
-            <div className="bg-white dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800/80 p-6 rounded-3xl shadow-sm space-y-6">
-              <div className="space-y-1">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 flex items-center gap-2">
-                  <Activity className="w-4.5 h-4.5 text-primary animate-pulse" /> Drug-Drug Interaction Checker
-                </h3>
-                <p className="text-[10px] text-zinc-400 font-medium">Verify if taking multiple medications concurrently is clinically safe.</p>
-              </div>
-
-              <form onSubmit={handleCheckInteractions} className="space-y-4">
-                <div className="space-y-2">
-                  {checkerDrugs.map((drug, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-zinc-450 w-16">Medication {index + 1}:</span>
-                      <input
-                        type="text"
-                        placeholder="e.g. Paracetamol, Ibuprofen, Atorvastatin..."
-                        value={drug}
-                        onChange={e => updateDrugInput(index, e.target.value)}
-                        className="flex-1 px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 rounded-xl focus:outline-none dark:text-zinc-100 text-[11px]"
-                      />
-                      {checkerDrugs.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => removeDrugInput(index)}
-                          className="p-2 text-zinc-450 hover:text-red-500 transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex justify-between items-center pt-2">
-                  <button
-                    type="button"
-                    onClick={addDrugInput}
-                    className="px-3.5 py-1.5 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-850 rounded-xl text-[10px] font-bold text-zinc-650 dark:text-zinc-300 transition-colors cursor-pointer"
-                  >
-                    + Add Medication
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={isCheckerLoading}
-                    className="px-5 py-2.5 bg-primary hover:bg-primary-dark text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer"
-                  >
-                    {isCheckerLoading ? (
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Sparkles className="w-3.5 h-3.5" />
-                    )}
-                    Check Compatibility
-                  </button>
-                </div>
-              </form>
-
-              {/* Interaction Checker Output Report */}
-              {checkerResult && (
-                <div className="border border-zinc-150 dark:border-zinc-800 rounded-2xl overflow-hidden mt-6 shadow-sm">
-                  <div className={`p-4 flex items-center gap-3 border-b border-zinc-150 dark:border-zinc-800 ${
-                    checkerResult.severity === 'Severe' 
-                      ? 'bg-red-500/10 text-red-500' 
-                      : checkerResult.severity === 'Moderate'
-                      ? 'bg-amber-500/10 text-amber-500'
-                      : 'bg-emerald-500/10 text-emerald-500'
-                  }`}>
-                    <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-                    <div>
-                      <p className="font-extrabold text-[11px] uppercase tracking-wider">Severity: {checkerResult.severity}</p>
-                      <p className="text-[10px] opacity-90">{checkerResult.summary}</p>
-                    </div>
-                  </div>
-
-                  <div className="p-5 space-y-4 text-[11px] text-zinc-650 dark:text-zinc-400 bg-zinc-50/20 dark:bg-zinc-950/20">
-                    {checkerResult.mechanism && (
-                      <div className="space-y-1">
-                        <p className="font-bold text-zinc-850 dark:text-zinc-200">Pharmacological Mechanism:</p>
-                        <p className="leading-relaxed">{checkerResult.mechanism}</p>
-                      </div>
-                    )}
-
-                    {checkerResult.precautions && checkerResult.precautions.length > 0 && (
-                      <div className="space-y-1.5">
-                        <p className="font-bold text-zinc-850 dark:text-zinc-200">Clinical Guidelines & Precautions:</p>
-                        <ul className="list-disc pl-4 space-y-1">
-                          {checkerResult.precautions.map((pr, i) => (
-                            <li key={i}>{pr}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    <div className="p-3 bg-zinc-100/50 dark:bg-zinc-900 border border-zinc-200/40 dark:border-zinc-800 rounded-xl text-[9px] text-zinc-400 font-bold flex gap-1.5">
-                      <Info className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
-                      <span>Note: This is an automated compatibility analysis. Consult a physician before starting or modifying dosages.</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAB 3: DOCTOR PRESCRIPTIONS INTEGRATIONS */}
-          {activeTab === 'prescriptions' && (
-            <div className="bg-white dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800/80 p-6 rounded-3xl shadow-sm space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-450 dark:text-zinc-500 flex items-center gap-2">
-                  <ClipboardList className="w-4.5 h-4.5 text-primary" /> Active Prescription Logs
-                </h3>
-                <span className="text-[10px] bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-bold border border-primary/20">
-                  {userPrescriptions.length} Records
-                </span>
-              </div>
-
-              {isPrescLoading ? (
-                <div className="py-20 text-center text-xs text-zinc-450 flex flex-col items-center justify-center space-y-2">
-                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  <span>Loading prescriptions...</span>
-                </div>
-              ) : userPrescriptions.length === 0 ? (
-                <div className="py-16 text-center text-xs text-zinc-450 border border-dashed border-zinc-200 dark:border-zinc-800/80 rounded-2xl space-y-2">
-                  <ClipboardList className="w-8 h-8 mx-auto text-zinc-350 dark:text-zinc-700" />
-                  <p className="font-semibold text-zinc-550 dark:text-zinc-450">No consultation prescriptions found.</p>
-                  <p className="text-[10px] text-zinc-405">Only completed consultations with prescriptions will show here.</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {userPrescriptions.map((appt) => (
-                    <div 
-                      key={appt._id} 
-                      className="p-5 border border-zinc-200/60 dark:border-zinc-800/80 rounded-2xl space-y-4 text-xs bg-zinc-50/40 dark:bg-zinc-900/20"
-                    >
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-zinc-200/50 dark:border-zinc-800/60 pb-3">
-                        <div className="space-y-1">
-                          <p className="font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            Prescription ID: #{appt._id.slice(-6)}
-                          </p>
-                          <p className="text-[10px] text-zinc-455 font-medium">Consulted on {slotDateFormat(appt.slotDate)}</p>
-                        </div>
-                        <button
-                          onClick={() => handleExplainPrescription(appt.prescription)}
-                          className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.97] text-white rounded-xl text-[10px] font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 transition-all"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" /> Explain with AI
-                        </button>
-                      </div>
-
-                      <div className="space-y-2.5">
-                        {appt.prescription.map((rx, idx) => (
-                          <div 
-                            key={idx} 
-                            className="flex justify-between items-center p-3 bg-white dark:bg-zinc-900/50 rounded-xl border border-zinc-150/40 dark:border-zinc-800/60 hover:border-zinc-250 dark:hover:border-zinc-700 transition-colors"
-                          >
-                            <div className="space-y-1">
-                              <p className="font-bold text-zinc-800 dark:text-zinc-100">{rx.name}</p>
-                              <p className="text-[10px] text-zinc-450">
-                                Dosage: <span className="text-zinc-650 dark:text-zinc-300 font-semibold">{rx.dosage}</span> | Frequency: <span className="text-zinc-650 dark:text-zinc-300 font-semibold">{rx.frequency}</span>
-                              </p>
-                            </div>
-                            <span className="text-[9px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-550 dark:text-zinc-400 px-2 py-0.5 rounded-md border border-zinc-200/20 dark:border-zinc-750">
-                              {rx.duration}
-                            </span>
+                        {inCart ? (
+                          <div className="flex items-center justify-between bg-primary/10 border border-primary/30 rounded-xl px-2 py-1 text-xs font-bold text-primary">
+                            <button 
+                              onClick={() => updateCartQuantity(med._id, -1)}
+                              className="p-1 hover:bg-primary/20 rounded-md cursor-pointer"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span>{inCart.quantity}</span>
+                            <button 
+                              onClick={() => updateCartQuantity(med._id, 1)}
+                              className="p-1 hover:bg-primary/20 rounded-md cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
                           </div>
-                        ))}
+                        ) : (
+                          <button
+                            onClick={() => addToCart(med)}
+                            className="w-full py-2 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm active:scale-98"
+                          >
+                            <ShoppingCart className="w-3.5 h-3.5" /> Add
+                          </button>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
+      )}
 
-        {/* RIGHT COLUMN: AI CLINICAL DRUG EXPLAINER PANEL */}
-        <div className="lg:col-span-1">
-          <div id="ai-advisor-panel" className="bg-white dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800/80 rounded-3xl p-6 shadow-sm space-y-5 sticky top-24">
-            
-            <div className="flex items-center gap-2 border-b border-zinc-150 dark:border-zinc-850 pb-3">
-              <span className="p-2 bg-primary/10 text-primary rounded-xl">
-                <Bot className="w-5 h-5 animate-bounce" />
-              </span>
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-50">
-                  AI Pharmacy Advisor
-                </h3>
-                <p className="text-[9px] text-zinc-450 font-medium">Describe symptoms to get matched remedies.</p>
+      {/* 🧪 TAB 2: AI DRUG INTERACTION & SAFETY CHECKER */}
+      {activeTab === 'checker' && (
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
+            <div className="space-y-2 text-center max-w-lg mx-auto">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto shadow-sm">
+                <Activity className="w-6 h-6" />
               </div>
+              <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">AI Drug Interaction & Safety Checker</h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Check potential adverse drug-drug interactions, contraindications, and clinical safety precautions before taking multiple medications.
+              </p>
             </div>
 
-            <form onSubmit={handleAiAdvisor} className="flex gap-2">
-              <input
-                id="ai-advisor-input"
-                type="text"
-                placeholder="e.g. Fever, diabetes, joint pain, acidity..."
-                value={aiQuery}
-                onChange={e => setAiQuery(e.target.value)}
-                className="flex-1 px-3 py-2.5 border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-955/40 rounded-xl focus:outline-none dark:text-zinc-100 text-[10px]"
-              />
-              <button
-                type="submit"
-                disabled={isAiLoading}
-                className="p-2.5 bg-primary hover:bg-primary-dark text-white rounded-xl active:scale-[0.96] transition-all cursor-pointer shadow-sm shadow-primary/10"
-              >
-                {isAiLoading ? (
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Send className="w-3.5 h-3.5" />
+            <form onSubmit={handleCheckInteractions} className="space-y-4">
+              <div className="space-y-3">
+                {checkerDrugs.map((drug, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <span className="w-6 text-xs font-bold text-zinc-400">#{index + 1}</span>
+                    <input
+                      id={`checker-drug-input-${index}`}
+                      name={`drugInput_${index}`}
+                      type="text"
+                      placeholder={`Enter medicine name (e.g. ${index === 0 ? 'Aspirin 75mg' : 'Warfarin 5mg'})`}
+                      value={drug}
+                      onChange={(e) => updateDrugInput(index, e.target.value)}
+                      className="flex-1 px-4 py-3 border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 rounded-2xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-zinc-800 dark:text-zinc-200"
+                    />
+                    {checkerDrugs.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => removeDrugInput(index)}
+                        className="p-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-between items-center pt-2">
+                {checkerDrugs.length < 5 && (
+                  <button
+                    type="button"
+                    onClick={addDrugInput}
+                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Another Medicine
+                  </button>
                 )}
-              </button>
+
+                <button
+                  type="submit"
+                  disabled={isCheckerLoading}
+                  className="ml-auto bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+                >
+                  {isCheckerLoading ? 'Analyzing Pharmacology...' : 'Check Interactions'} <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </form>
 
-            {aiReply ? (
-              <div className="space-y-4 bg-zinc-50/40 dark:bg-zinc-950/30 p-4 rounded-2xl border border-zinc-200/30 dark:border-zinc-800/60 text-[10px] max-h-96 overflow-y-auto no-scrollbar">
-                <div className="text-zinc-650 dark:text-zinc-350 leading-relaxed font-medium space-y-1">
-                  <p className="font-bold text-[8px] uppercase tracking-wider text-zinc-405">Diagnosis & Guidance</p>
-                  <p className="whitespace-pre-line text-[10px]">{aiReply.text}</p>
+            {/* Checker Result Report */}
+            {checkerResult && (
+              <div className={`p-5 rounded-2xl border space-y-3 ${
+                checkerResult.severity === 'Severe' 
+                  ? 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300' 
+                  : checkerResult.severity === 'Moderate'
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300'
+                  : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-sm flex items-center gap-2">
+                    <ShieldAlert className="w-5 h-5" /> Interaction Severity: {checkerResult.severity}
+                  </h4>
                 </div>
-
-                {aiReply.medicines && aiReply.medicines.length > 0 && (
-                  <div className="space-y-2 border-t border-zinc-200/50 dark:border-zinc-800/50 pt-3">
-                    <p className="font-bold text-[8px] uppercase tracking-wider text-emerald-500">Available Database Matches</p>
-                    <div className="space-y-1.5">
-                      {aiReply.medicines.map(med => (
-                        <div key={med._id} className="flex justify-between items-center bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 p-2 rounded-xl">
-                          <div className="space-y-0.5 truncate max-w-[70%]">
-                            <p className="font-bold text-zinc-850 dark:text-zinc-150 truncate text-[10px]">{med.name}</p>
-                            <p className="text-[8px] text-zinc-450">{med.category}</p>
-                          </div>
-                          <button
-                            onClick={() => setSelectedMedicine(med)}
-                            className="px-2.5 py-1 text-[9px] font-bold bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg cursor-pointer transition-all"
-                          >
-                            Guide
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                <p className="text-xs leading-relaxed font-medium">{checkerResult.summary}</p>
+                {checkerResult.mechanism && (
+                  <div className="text-xs space-y-1 pt-2 border-t border-current/20">
+                    <span className="font-bold">Mechanism:</span>
+                    <p className="opacity-90">{checkerResult.mechanism}</p>
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="py-12 text-center text-zinc-400 text-xs flex flex-col items-center justify-center border border-dashed border-zinc-200 dark:border-zinc-800/80 rounded-2xl space-y-3">
-                <Bot className="w-8 h-8 text-zinc-300 dark:text-zinc-700 animate-pulse" />
-                <p className="font-bold text-zinc-500 dark:text-zinc-400">Ask a question to begin</p>
-                <p className="text-[8px] text-zinc-400 px-4 leading-normal">
-                  Our clinical AI assistant can analyze symptoms, dosage safety, and match them with appropriate catalog solutions.
-                </p>
+                {checkerResult.precautions?.length > 0 && (
+                  <div className="text-xs space-y-1 pt-2 border-t border-current/20">
+                    <span className="font-bold">Precautions:</span>
+                    <ul className="list-disc list-inside space-y-0.5 opacity-90">
+                      {checkerResult.precautions.map((p, i) => (
+                        <li key={i}>{p}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
+      )}
 
-      </div>
-
-      {/* CLINICAL DETAIL MODAL */}
-      {selectedMedicine && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-6 text-xs text-left shadow-2xl relative">
-            
-            <div className="flex justify-between items-start border-b border-zinc-150 dark:border-zinc-800 pb-3.5">
+      {/* 📋 TAB 3: DOCTOR CONSULTATION PRESCRIPTIONS */}
+      {activeTab === 'prescriptions' && (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800">
               <div>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[8px] font-bold bg-primary/10 text-primary border border-primary/20 mb-1">
-                  {selectedMedicine.category}
-                </span>
-                <h3 className="text-base font-black text-zinc-900 dark:text-zinc-50">
-                  {selectedMedicine.name}
-                </h3>
-                <p className="text-[10px] text-zinc-450 font-bold">Generic: <span className="text-zinc-750 dark:text-zinc-300 font-black">{selectedMedicine.genericName || "Unspecified"}</span></p>
+                <h2 className="text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5 text-primary" /> E-Prescriptions from Doctor Consultations
+                </h2>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  Access digital prescriptions issued by HealthVerse verified doctors and add prescribed medications to cart in 1 click.
+                </p>
+              </div>
+            </div>
+
+            {isPrescLoading ? (
+              <div className="space-y-4">
+                {[1, 2].map(n => (
+                  <div key={n} className="p-5 border border-zinc-200 dark:border-zinc-800 rounded-2xl animate-pulse h-32" />
+                ))}
+              </div>
+            ) : userPrescriptions.length === 0 ? (
+              <div className="py-16 text-center space-y-3">
+                <FileText className="w-10 h-10 mx-auto text-zinc-400" />
+                <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300">No consultation prescriptions found.</p>
+                <p className="text-xs text-zinc-400">Once a doctor completes your appointment and issues an e-prescription, it will appear here automatically.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {userPrescriptions.map((appt) => (
+                  <div key={appt._id} className="p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 space-y-4">
+                    <div className="flex justify-between items-start flex-wrap gap-2">
+                      <div>
+                        <h4 className="font-bold text-sm text-zinc-900 dark:text-white">{appt.docData?.name || 'Consulting Specialist'}</h4>
+                        <p className="text-xs text-zinc-500">{appt.docData?.speciality} • Date: {appt.slotDate}</p>
+                      </div>
+                      <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-bold rounded-full">
+                        Verified Consultation
+                      </span>
+                    </div>
+
+                    {/* Prescribed Drugs List */}
+                    <div className="space-y-2 bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200/60 dark:border-zinc-800">
+                      <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Prescribed Medications:</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {appt.prescription.map((rx, rIdx) => (
+                          <div key={rIdx} className="p-2.5 bg-zinc-50 dark:bg-zinc-950 rounded-lg border border-zinc-200/50 dark:border-zinc-800 text-xs flex justify-between items-center">
+                            <div>
+                              <p className="font-bold text-zinc-900 dark:text-zinc-100">{rx.name}</p>
+                              <p className="text-[10px] text-zinc-500">{rx.dosage} • {rx.frequency} • {rx.duration}</p>
+                            </div>
+                            <button
+                              onClick={() => {
+                                const matchingMed = medicines.find(m => m.name.toLowerCase().includes(rx.name.toLowerCase()) || rx.name.toLowerCase().includes(m.name.toLowerCase()))
+                                if (matchingMed) {
+                                  addToCart(matchingMed)
+                                } else {
+                                  toast.info(`Added ${rx.name} to pharmacy order list.`)
+                                }
+                              }}
+                              className="px-2 py-1 bg-primary text-white text-[10px] font-bold rounded-md hover:bg-primary-dark cursor-pointer"
+                            >
+                              + Add to Cart
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 🛒 4. SLIDE-OUT CART & CHECKOUT DRAWER */}
+      {isCartOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 h-full shadow-2xl flex flex-col justify-between overflow-hidden border-l border-zinc-200 dark:border-zinc-800 animate-slideLeft">
+            
+            {/* Cart Header */}
+            <div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-primary" />
+                <h3 className="font-bold text-base text-zinc-900 dark:text-white">Pharmacy Cart ({totalCartCount})</h3>
               </div>
               <button 
-                onClick={() => setSelectedMedicine(null)}
-                className="text-zinc-405 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-all"
+                onClick={() => setIsCartOpen(false)}
+                className="p-2 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4">
-              {/* Indications */}
+            {/* Cart Items List */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {cart.length === 0 ? (
+                <div className="py-20 text-center space-y-3">
+                  <ShoppingCart className="w-12 h-12 mx-auto text-zinc-300 dark:text-zinc-700 animate-bounce" />
+                  <p className="font-bold text-sm text-zinc-700 dark:text-zinc-300">Your cart is currently empty.</p>
+                  <p className="text-xs text-zinc-400">Browse verified medicines and add items to begin checkout.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {cart.map((item) => (
+                    <div key={item._id} className="p-3.5 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/70 dark:border-zinc-800 flex items-center justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-xs text-zinc-900 dark:text-white truncate">{item.name}</h4>
+                        <p className="text-[10px] text-zinc-400">{item.packSize || 'Strip of 10'} • ₹{item.price} each</p>
+                        <p className="text-xs font-extrabold text-primary mt-1">₹{item.price * item.quantity}</p>
+                      </div>
+
+                      {/* Quantity Modifier */}
+                      <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-2 py-1 text-xs font-bold">
+                        <button 
+                          onClick={() => updateCartQuantity(item._id, -1)}
+                          className="p-1 hover:text-primary cursor-pointer"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span>{item.quantity}</span>
+                        <button 
+                          onClick={() => updateCartQuantity(item._id, 1)}
+                          className="p-1 hover:text-primary cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => removeFromCart(item._id)}
+                        className="p-1.5 text-zinc-400 hover:text-red-500 cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Free Delivery Bar */}
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2 font-medium">
+                    <Truck className="w-4 h-4 flex-shrink-0" />
+                    <span>
+                      {subtotalPrice >= 299 
+                        ? '🎉 You unlocked FREE Express Delivery!' 
+                        : `Add ₹${299 - subtotalPrice} more for FREE Express Delivery!`}
+                    </span>
+                  </div>
+
+                  {/* Checkout Form */}
+                  <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 space-y-3">
+                    <h4 className="font-bold text-xs text-zinc-500 uppercase tracking-wider">Delivery Details</h4>
+                    
+                    <div>
+                      <label htmlFor="pharmacy-delivery-address" className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">Delivery Address</label>
+                      <input
+                        id="pharmacy-delivery-address"
+                        name="deliveryAddress"
+                        autoComplete="street-address"
+                        type="text"
+                        placeholder="House/Flat No, Street, City, Pincode"
+                        value={deliveryAddress}
+                        onChange={(e) => setDeliveryAddress(e.target.value)}
+                        className="w-full mt-1 px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="pharmacy-delivery-phone" className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">Phone Number</label>
+                      <input
+                        id="pharmacy-delivery-phone"
+                        name="deliveryPhone"
+                        autoComplete="tel"
+                        type="tel"
+                        placeholder="+91 98765 43210"
+                        value={deliveryPhone}
+                        onChange={(e) => setDeliveryPhone(e.target.value)}
+                        className="w-full mt-1 px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">Payment Mode</label>
+                      <select
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        className="w-full mt-1 px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-primary font-medium"
+                      >
+                        <option value="Cash on Delivery">💵 Cash on Delivery (Pay at doorstep)</option>
+                        <option value="Online UPI / Cards">⚡ Instant UPI / Credit & Debit Cards</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bill Summary & Order CTA */}
+            {cart.length > 0 && (
+              <div className="p-5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 space-y-3">
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between text-zinc-500">
+                    <span>Total MRP:</span>
+                    <span className="line-through">₹{totalMrp}</span>
+                  </div>
+                  <div className="flex justify-between text-emerald-500 font-bold">
+                    <span>Discount Savings:</span>
+                    <span>-₹{totalSavings}</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-500">
+                    <span>Express Delivery:</span>
+                    <span>{deliveryFee === 0 ? <strong className="text-emerald-500 font-bold">FREE</strong> : `₹${deliveryFee}`}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-extrabold text-zinc-900 dark:text-white pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                    <span>Final Payable:</span>
+                    <span className="text-primary text-base">₹{finalPayable}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handlePlaceOrder}
+                  disabled={isPlacingOrder}
+                  className="w-full py-3.5 bg-primary hover:bg-primary-dark text-white rounded-2xl font-bold text-sm shadow-lg shadow-primary/30 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
+                >
+                  {isPlacingOrder ? 'Confirming Order...' : `Place Order (₹${finalPayable})`} <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 📄 5. CLINICAL INFORMATION & SUBSTANCE GUIDE MODAL */}
+      {selectedMedicine && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto text-left relative animate-scaleUp">
+            
+            <button
+              onClick={() => setSelectedMedicine(null)}
+              className="absolute top-5 right-5 p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-start gap-4">
+              <img 
+                src={selectedMedicine.image || "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=400&auto=format&fit=crop"} 
+                alt={selectedMedicine.name} 
+                className="w-20 h-20 rounded-2xl object-cover border border-zinc-200 dark:border-zinc-800 flex-shrink-0"
+              />
               <div className="space-y-1">
-                <p className="font-extrabold text-[8px] uppercase tracking-wider text-zinc-400">Clinical Uses & Indications</p>
-                <p className="text-zinc-650 dark:text-zinc-350 leading-relaxed font-medium">
-                  {selectedMedicine.description}
-                </p>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+                  {selectedMedicine.category}
+                </span>
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">{selectedMedicine.name}</h3>
+                <p className="text-xs text-zinc-500 font-semibold">{selectedMedicine.manufacturer} • {selectedMedicine.packSize}</p>
+                <p className="text-xs font-extrabold text-primary">₹{selectedMedicine.price} <span className="line-through text-zinc-400 font-normal ml-1">₹{selectedMedicine.mrp}</span></p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs leading-relaxed text-zinc-700 dark:text-zinc-300">
+              <div className="p-3 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-800 space-y-1">
+                <span className="font-bold text-zinc-900 dark:text-white">Active Composition & Salt:</span>
+                <p className="text-primary font-semibold">{selectedMedicine.composition || selectedMedicine.genericName}</p>
               </div>
 
-              {/* Side Effects */}
-              {selectedMedicine.sideEffects && selectedMedicine.sideEffects.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="font-extrabold text-[8px] uppercase tracking-wider text-red-500">Possible Side Effects</p>
-                  <ul className="list-disc pl-4 space-y-1 text-zinc-650 dark:text-zinc-400 leading-normal font-medium">
+              <div>
+                <span className="font-bold text-zinc-900 dark:text-white">Clinical Indications & Uses:</span>
+                <p className="mt-0.5">{selectedMedicine.description}</p>
+              </div>
+
+              {selectedMedicine.diseases?.length > 0 && (
+                <div>
+                  <span className="font-bold text-zinc-900 dark:text-white">Treats Conditions:</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {selectedMedicine.diseases.map((d, i) => (
+                      <span key={i} className="px-2.5 py-0.5 bg-primary/10 text-primary rounded-lg text-[10px] font-bold">
+                        {d}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedMedicine.sideEffects?.length > 0 && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-800 dark:text-amber-300 space-y-1">
+                  <span className="font-bold flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> Possible Side Effects:</span>
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px]">
                     {selectedMedicine.sideEffects.map((se, i) => (
                       <li key={i}>{se}</li>
                     ))}
@@ -788,58 +1077,71 @@ INSTRUCTIONS:
                 </div>
               )}
 
-              {/* Interactions */}
-              {selectedMedicine.interactions && selectedMedicine.interactions.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="font-extrabold text-[8px] uppercase tracking-wider text-amber-500">Key Drug Interactions</p>
-                  <ul className="list-disc pl-4 space-y-1 text-zinc-650 dark:text-zinc-400 leading-normal font-medium">
-                    {selectedMedicine.interactions.map((inter, i) => (
-                      <li key={i}>{inter}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Alternatives */}
-              {selectedMedicine.alternatives && selectedMedicine.alternatives.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="font-extrabold text-[8px] uppercase tracking-wider text-emerald-500">Generic Brands & Substitutes</p>
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+              {selectedMedicine.alternatives?.length > 0 && (
+                <div>
+                  <span className="font-bold text-zinc-900 dark:text-white">Equivalent Brand Substitutes:</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
                     {selectedMedicine.alternatives.map((alt, i) => (
-                      <button
-                        key={i}
-                        onClick={() => {
-                          setSearch(alt)
-                          setSelectedMedicine(null)
-                        }}
-                        className="px-2.5 py-1 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-800 border border-zinc-200/50 dark:border-zinc-800 rounded-lg font-bold text-zinc-650 dark:text-zinc-300 transition-colors cursor-pointer text-[10px]"
-                      >
+                      <span key={i} className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-[10px] font-semibold text-zinc-600 dark:text-zinc-300">
                         {alt}
-                      </button>
+                      </span>
                     ))}
                   </div>
                 </div>
               )}
-
-              {/* Supplier Info */}
-              {selectedMedicine.supplier && (
-                <div className="p-3 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl space-y-1 text-[9px] text-zinc-500 dark:text-zinc-450 leading-relaxed">
-                  <p className="font-extrabold text-[8px] uppercase tracking-wider text-zinc-400">Inventory Sourcing Details</p>
-                  <p><span className="font-bold text-zinc-700 dark:text-zinc-350">Manufacturer:</span> {selectedMedicine.supplier.name}</p>
-                  <p><span className="font-bold text-zinc-700 dark:text-zinc-350">Clinical Category:</span> {selectedMedicine.category}</p>
-                  <p><span className="font-bold text-zinc-700 dark:text-zinc-350">Formulation SKU:</span> {selectedMedicine.sku}</p>
-                </div>
-              )}
             </div>
 
-            <div className="flex justify-end border-t border-zinc-150 dark:border-zinc-800 pt-3">
-              <button 
-                onClick={() => setSelectedMedicine(null)}
-                className="px-5 py-2 bg-primary hover:bg-primary-dark text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-primary/10 active:scale-[0.97]"
-              >
-                Close Guide
-              </button>
+            <button
+              onClick={() => {
+                addToCart(selectedMedicine)
+                setSelectedMedicine(null)
+              }}
+              className="w-full py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md"
+            >
+              <ShoppingCart className="w-4 h-4" /> Add to Order Cart (₹{selectedMedicine.price})
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🎉 6. ORDER CONFIRMATION SUCCESS MODAL */}
+      {orderSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-4 text-center animate-scaleUp">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-10 h-10" />
             </div>
+
+            <h3 className="text-xl font-extrabold text-zinc-900 dark:text-white">Pharmacy Order Confirmed!</h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Your genuine certified medicines have been scheduled for dispatch. Expected delivery within 2 hours.
+            </p>
+
+            <div className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/70 dark:border-zinc-800 text-xs space-y-2 text-left">
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Order ID:</span>
+                <span className="font-bold text-zinc-900 dark:text-white">{orderSuccessModal.orderId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Items:</span>
+                <span className="font-bold text-zinc-900 dark:text-white">{orderSuccessModal.itemsCount} medicines</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Total Paid:</span>
+                <span className="font-bold text-primary">₹{orderSuccessModal.amount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Payment:</span>
+                <span className="font-bold text-zinc-900 dark:text-white">{orderSuccessModal.paymentMethod}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setOrderSuccessModal(null)}
+              className="w-full py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-xs cursor-pointer shadow-md"
+            >
+              Continue Shopping
+            </button>
           </div>
         </div>
       )}

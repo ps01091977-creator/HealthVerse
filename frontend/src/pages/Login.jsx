@@ -113,10 +113,13 @@ const Login = () => {
         <div className="space-y-4">
           {state === 'Sign Up' && (
             <div className='space-y-1 w-full text-xs'>
-              <label className='font-semibold text-zinc-600 dark:text-zinc-400'>Full Name</label>
+              <label htmlFor="user-name-input" className='font-semibold text-zinc-600 dark:text-zinc-400'>Full Name</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                 <input 
+                  id="user-name-input"
+                  name="fullName"
+                  autoComplete="name"
                   onChange={(e) => setName(e.target.value)} 
                   value={name} 
                   placeholder="John Doe" 
@@ -131,10 +134,13 @@ const Login = () => {
           )}
 
           <div className='space-y-1 w-full text-xs'>
-            <label className='font-semibold text-zinc-600 dark:text-zinc-400'>Email address</label>
+            <label htmlFor="user-email-input" className='font-semibold text-zinc-600 dark:text-zinc-400'>Email address</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
               <input 
+                id="user-email-input"
+                name="email"
+                autoComplete="email"
                 onChange={(e) => setEmail(e.target.value)} 
                 value={email} 
                 placeholder="example@email.com" 
@@ -148,10 +154,13 @@ const Login = () => {
           </div>
 
           <div className='space-y-1 w-full text-xs'>
-            <label className='font-semibold text-zinc-600 dark:text-zinc-400'>Password</label>
+            <label htmlFor="user-password-input" className='font-semibold text-zinc-600 dark:text-zinc-400'>Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
               <input 
+                id="user-password-input"
+                name="password"
+                autoComplete="current-password"
                 onChange={(e) => setPassword(e.target.value)} 
                 value={password} 
                 placeholder="••••••••" 
@@ -164,6 +173,22 @@ const Login = () => {
             {errors.password && <p className="text-[10px] text-red-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> {errors.password}</p>}
           </div>
         </div>
+
+        {state === 'Login' && (
+          <div className="w-full bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-800 rounded-xl p-2.5 flex items-center justify-between text-xs">
+            <span className="text-zinc-500 dark:text-zinc-400 font-medium">Demo Patient</span>
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('testuser999@healthverse.com')
+                setPassword('Password@123')
+              }}
+              className="text-primary dark:text-primary font-semibold bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+            >
+              Auto Fill
+            </button>
+          </div>
+        )}
 
         {/* Submit */}
         <button 

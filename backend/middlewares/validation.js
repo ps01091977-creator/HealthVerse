@@ -10,26 +10,27 @@ export const validateSchema = (schema) => {
         params: req.params,
       });
 
-      // Assign cleaned, parsed values back
-      req.body = validated.body || req.body;
-      req.query = validated.query || req.query;
-      req.params = validated.params || req.params;
+      // Assign cleaned, parsed values back (avoid mutating req.query in Express 5)
+      if (validated.body) req.body = validated.body;
+      if (validated.params) req.params = validated.params;
 
       next();
     } catch (error) {
-      if (error instanceof z.ZodError) {
+      if (error && (error instanceof z.ZodError || error.name === 'ZodError' || error.issues)) {
+        const issues = error.errors || error.issues || [];
         return res.status(400).json({
           success: false,
-          message: 'Validation failed',
-          errors: error.errors.map((e) => ({
-            path: e.path.join('.').replace(/^(body|query|params)\./, ''),
+          message: issues[0]?.message || 'Validation failed',
+          errors: issues.map((e) => ({
+            path: e.path?.join('.')?.replace(/^(body|query|params)\./, '') || '',
             message: e.message,
           })),
         });
       }
+      console.error('Validation Error Details:', error);
       return res.status(500).json({
         success: false,
-        message: 'Internal Validation Error',
+        message: error.message || 'Internal Validation Error',
       });
     }
   };

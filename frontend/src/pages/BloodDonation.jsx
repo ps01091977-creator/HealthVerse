@@ -312,7 +312,7 @@ const BloodDonation = () => {
                   <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
                     <div className="w-3 h-3 rounded-full bg-primary"></div>
                   </div>
-                  <span className="text-[9px] font-bold text-primary mt-1 shadow bg-white px-1.5 py-0.5 rounded border">Novacare Central</span>
+                  <span className="text-[9px] font-bold text-primary mt-1 shadow bg-white px-1.5 py-0.5 rounded border">HealthVerse Central</span>
                 </div>
 
                 {/* Render mock donor coordinates coordinates mapping */}
@@ -386,8 +386,11 @@ const BloodDonation = () => {
               <form onSubmit={handleRegisterDonorSubmit} className="space-y-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="font-bold text-zinc-550">Full Name *</label>
+                    <label htmlFor="donor-full-name" className="font-bold text-zinc-550">Full Name *</label>
                     <input
+                      id="donor-full-name"
+                      name="donorName"
+                      autoComplete="name"
                       type="text"
                       required
                       value={donorForm.name}
@@ -397,8 +400,10 @@ const BloodDonation = () => {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="font-bold text-zinc-550">Blood Group *</label>
+                    <label htmlFor="donor-blood-group" className="font-bold text-zinc-550">Blood Group *</label>
                     <select
+                      id="donor-blood-group"
+                      name="donorBloodGroup"
                       value={donorForm.bloodGroup}
                       onChange={(e) => setDonorForm({ ...donorForm, bloodGroup: e.target.value })}
                       className="w-full p-2 border border-zinc-200 rounded-xl bg-white focus:outline-none"
@@ -414,9 +419,12 @@ const BloodDonation = () => {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="font-bold text-zinc-550">Phone Number *</label>
+                    <label htmlFor="donor-phone-num" className="font-bold text-zinc-550">Phone Number *</label>
                     <input
-                      type="text"
+                      id="donor-phone-num"
+                      name="donorPhone"
+                      autoComplete="tel"
+                      type="tel"
                       required
                       value={donorForm.phone}
                       onChange={(e) => setDonorForm({ ...donorForm, phone: e.target.value })}
@@ -425,8 +433,11 @@ const BloodDonation = () => {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="font-bold text-zinc-550">Email ID *</label>
+                    <label htmlFor="donor-email-id" className="font-bold text-zinc-550">Email ID *</label>
                     <input
+                      id="donor-email-id"
+                      name="donorEmail"
+                      autoComplete="email"
                       type="email"
                       required
                       value={donorForm.email}
@@ -436,8 +447,11 @@ const BloodDonation = () => {
                     />
                   </div>
                   <div className="sm:col-span-2 space-y-1">
-                    <label className="font-bold text-zinc-550">Current Residential Address *</label>
+                    <label htmlFor="donor-address-line" className="font-bold text-zinc-550">Current Residential Address *</label>
                     <input
+                      id="donor-address-line"
+                      name="donorAddress"
+                      autoComplete="street-address"
                       type="text"
                       required
                       value={donorForm.address}
@@ -447,8 +461,10 @@ const BloodDonation = () => {
                     />
                   </div>
                   <div className="sm:col-span-2 space-y-1">
-                    <label className="font-bold text-zinc-550 font-sans">Last Blood Donation Date (Leave empty if first time)</label>
+                    <label htmlFor="donor-last-date" className="font-bold text-zinc-550 font-sans">Last Blood Donation Date (Leave empty if first time)</label>
                     <input
+                      id="donor-last-date"
+                      name="donorLastDonationDate"
                       type="date"
                       value={donorForm.lastDonationDate}
                       onChange={(e) => setDonorForm({ ...donorForm, lastDonationDate: e.target.value })}
@@ -487,8 +503,11 @@ const BloodDonation = () => {
               <form onSubmit={handleRequestBloodSubmit} className="space-y-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="font-bold text-zinc-550">Patient Name *</label>
+                    <label htmlFor="req-patient-name" className="font-bold text-zinc-550">Patient Name *</label>
                     <input
+                      id="req-patient-name"
+                      name="patientName"
+                      autoComplete="name"
                       type="text"
                       required
                       value={requestForm.patientName}
@@ -498,8 +517,10 @@ const BloodDonation = () => {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="font-bold text-zinc-550">Required Blood Group *</label>
+                    <label htmlFor="req-blood-group" className="font-bold text-zinc-550">Required Blood Group *</label>
                     <select
+                      id="req-blood-group"
+                      name="bloodGroup"
                       value={requestForm.bloodGroup}
                       onChange={(e) => setRequestForm({ ...requestForm, bloodGroup: e.target.value })}
                       className="w-full p-2 border border-zinc-200 rounded-xl bg-white focus:outline-none"
@@ -515,8 +536,10 @@ const BloodDonation = () => {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="font-bold text-zinc-550">Units Required *</label>
+                    <label htmlFor="req-units" className="font-bold text-zinc-550">Units Required *</label>
                     <input
+                      id="req-units"
+                      name="units"
                       type="number"
                       required
                       value={requestForm.units}
@@ -526,8 +549,10 @@ const BloodDonation = () => {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="font-bold text-zinc-550">Urgency Level *</label>
+                    <label htmlFor="req-urgency" className="font-bold text-zinc-550">Urgency Level *</label>
                     <select
+                      id="req-urgency"
+                      name="urgency"
                       value={requestForm.urgency}
                       onChange={(e) => setRequestForm({ ...requestForm, urgency: e.target.value })}
                       className="w-full p-2 border border-zinc-200 rounded-xl bg-white focus:outline-none"
@@ -538,8 +563,10 @@ const BloodDonation = () => {
                     </select>
                   </div>
                   <div className="sm:col-span-2 space-y-1">
-                    <label className="font-bold text-zinc-550">Hospital Name & Address *</label>
+                    <label htmlFor="req-hospital" className="font-bold text-zinc-550">Hospital Name & Address *</label>
                     <input
+                      id="req-hospital"
+                      name="hospital"
                       type="text"
                       required
                       value={requestForm.hospital}
@@ -549,9 +576,12 @@ const BloodDonation = () => {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="font-bold text-zinc-550">Contact Number *</label>
+                    <label htmlFor="req-phone" className="font-bold text-zinc-550">Contact Number *</label>
                     <input
-                      type="text"
+                      id="req-phone"
+                      name="phone"
+                      autoComplete="tel"
+                      type="tel"
                       required
                       value={requestForm.phone}
                       onChange={(e) => setRequestForm({ ...requestForm, phone: e.target.value })}
@@ -560,8 +590,11 @@ const BloodDonation = () => {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="font-bold text-zinc-550">City location address *</label>
+                    <label htmlFor="req-address" className="font-bold text-zinc-550">City location address *</label>
                     <input
+                      id="req-address"
+                      name="address"
+                      autoComplete="address-level2"
                       type="text"
                       required
                       value={requestForm.address}

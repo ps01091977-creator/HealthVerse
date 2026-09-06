@@ -81,6 +81,9 @@ const MyProfile = () => {
                     <div className="flex-1 text-center sm:text-left space-y-1.5 w-full">
                         {isEdit ? (
                             <input 
+                                id="profile-name-input"
+                                name="name"
+                                autoComplete="name"
                                 className='w-full max-w-sm px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-base font-semibold rounded-xl focus:outline-none focus:ring-1 focus:ring-primary' 
                                 type="text"
                                 onChange={(e) => setUserData(prev => ({ ...prev, name: e.target.value }))}
@@ -113,6 +116,9 @@ const MyProfile = () => {
                         <div>
                             {isEdit ? (
                                 <input 
+                                    id="profile-phone-input"
+                                    name="phone"
+                                    autoComplete="tel"
                                     className='w-full max-w-sm px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary' 
                                     type="text"
                                     onChange={(e) => setUserData(prev => ({ ...prev, phone: e.target.value }))}
@@ -130,6 +136,9 @@ const MyProfile = () => {
                             {isEdit ? (
                                 <div className="space-y-2 max-w-sm">
                                     <input 
+                                        id="profile-address-line1"
+                                        name="addressLine1"
+                                        autoComplete="address-line1"
                                         className='w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary' 
                                         type="text"
                                         placeholder="Street Address Line 1"
@@ -140,6 +149,9 @@ const MyProfile = () => {
                                         value={userData.address?.line1 || ''}
                                     />
                                     <input 
+                                        id="profile-address-line2"
+                                        name="addressLine2"
+                                        autoComplete="address-line2"
                                         className='w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary' 
                                         type="text"
                                         placeholder="City, State, Zip Line 2"
@@ -173,6 +185,8 @@ const MyProfile = () => {
                         <div>
                             {isEdit ? (
                                 <select 
+                                    id="profile-gender-select"
+                                    name="gender"
                                     className='w-full max-w-sm px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary'
                                     onChange={(e) => setUserData(prev => ({ ...prev, gender: e.target.value }))}
                                     value={userData.gender}
@@ -193,6 +207,9 @@ const MyProfile = () => {
                         <div>
                             {isEdit ? (
                                 <input 
+                                    id="profile-dob-input"
+                                    name="dob"
+                                    autoComplete="bday"
                                     className='w-full max-w-sm px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary text-zinc-850 dark:text-zinc-250' 
                                     type='date'
                                     onChange={(e) => setUserData(prev => ({ ...prev, dob: e.target.value }))}

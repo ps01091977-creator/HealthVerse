@@ -83,22 +83,41 @@ const Login = () => {
           />
         </div>
 
-        <button className='bg-primary hover:bg-primary-dark text-white font-medium w-full py-3 rounded-xl text-sm transition-all duration-200 shadow-md hover:shadow-lg active:scale-[0.99] mt-2'>
-          Sign In
+        <div className="w-full bg-zinc-50 border border-zinc-200/60 rounded-xl p-2.5 flex items-center justify-between text-xs">
+          <span className="text-zinc-500 font-medium">Demo {state} Credentials</span>
+          <button
+            type="button"
+            onClick={() => {
+              if (state === 'Admin') {
+                setEmail('priyanshushakyaps789@gmail.com')
+                setPassword('Priyanshu@999')
+              } else {
+                setEmail('richard.james@healthverse.ai')
+                setPassword('Doctor@123')
+              }
+            }}
+            className="text-primary hover:text-primary-dark font-semibold bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-lg transition-all"
+          >
+            Auto Fill
+          </button>
+        </div>
+
+        <button className='bg-primary hover:bg-primary-dark text-white font-medium w-full py-3 rounded-xl text-sm transition-all duration-200 shadow-md hover:shadow-lg active:scale-[0.99] mt-1'>
+          Sign In as {state}
         </button>
 
         <div className="w-full text-center mt-2 border-t border-zinc-100 pt-4">
           {state === 'Admin' ? (
             <p className="text-zinc-500 text-xs">
               Are you a doctor?{' '}
-              <span onClick={() => setState('Doctor')} className='text-primary font-medium hover:underline cursor-pointer transition-all'>
+              <span onClick={() => { setState('Doctor'); setEmail(''); setPassword(''); }} className='text-primary font-medium hover:underline cursor-pointer transition-all'>
                 Doctor Portal Login
               </span>
             </p>
           ) : (
             <p className="text-zinc-500 text-xs">
               Are you an administrator?{' '}
-              <span onClick={() => setState('Admin')} className='text-primary font-medium hover:underline cursor-pointer transition-all'>
+              <span onClick={() => { setState('Admin'); setEmail(''); setPassword(''); }} className='text-primary font-medium hover:underline cursor-pointer transition-all'>
                 Admin Console Login
               </span>
             </p>

@@ -120,7 +120,7 @@ const EmergencySOS = () => {
   const nearbyFacilities = [
     { name: "Apollo Emergency Center", dist: "1.4 km", contact: "+91-9988771122" },
     { name: "Fortis Cardiac Critical Care", dist: "2.8 km", contact: "+91-9988771133" },
-    { name: "Novacare Trauma Clinic", dist: "3.2 km", contact: "+91-9988771144" }
+    { name: "HealthVerse Trauma Clinic", dist: "3.2 km", contact: "+91-9988771144" }
   ]
 
   // Google Maps State and Refs
@@ -431,7 +431,10 @@ const EmergencySOS = () => {
             {sosStatus === 'triggered' && (
               <form onSubmit={handleConfirmSOS} className="w-full space-y-3">
                 <input
-                  type="text"
+                  id="sos-contact-phone"
+                  name="contactPhone"
+                  autoComplete="tel"
+                  type="tel"
                   placeholder="Enter Contact Phone No. *"
                   required
                   value={phoneNum}
@@ -439,6 +442,9 @@ const EmergencySOS = () => {
                   className="w-full p-2 border border-zinc-200 rounded-xl bg-white focus:outline-none"
                 />
                 <input
+                  id="sos-patient-name"
+                  name="patientName"
+                  autoComplete="name"
                   type="text"
                   placeholder="Enter Patient Name (Optional)"
                   value={patientName}
