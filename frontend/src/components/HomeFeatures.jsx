@@ -110,7 +110,7 @@ const HomeFeatures = () => {
       </div>
 
       {/* 3. PREMIUM MEDICAL VALUE CALL-OUT */}
-      <div className="bg-gradient-to-br from-zinc-900 to-zinc-950 dark:from-zinc-950 dark:to-black rounded-3xl p-8 sm:p-10 border border-zinc-800/80 shadow-xl relative overflow-hidden flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+      <div className="bg-gradient-to-br from-blue-50/80 via-white to-indigo-50/60 dark:from-zinc-950 dark:via-zinc-900/90 dark:to-[#0c0d14] rounded-3xl p-6 sm:p-10 border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm dark:shadow-xl relative overflow-hidden flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         
         {/* Glow Effects */}
         <div className="absolute top-0 right-0 w-80 h-80 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
@@ -120,8 +120,8 @@ const HomeFeatures = () => {
           <span className="text-[9px] font-bold text-primary uppercase tracking-widest bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full">
             Clinical Trust & Security
           </span>
-          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">Your health data is protected under complete enterprise standards.</h2>
-          <p className="text-zinc-400 leading-relaxed text-[11px]">
+          <h2 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white tracking-tight">Your health data is protected under complete enterprise standards.</h2>
+          <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed text-[11px] sm:text-xs">
             Every consultation, symptom analysis, and prescription check is secured using industry-standard encrypted channels. Access verified medical care without compromises.
           </p>
         </div>
@@ -129,13 +129,13 @@ const HomeFeatures = () => {
         <div className="flex flex-wrap gap-3 z-10 w-full lg:w-auto">
           <Link 
             to="/doctors"
-            className="px-5 py-3 bg-primary hover:bg-primary-dark text-white rounded-2xl text-[11px] font-extrabold shadow-lg shadow-primary/25 hover:scale-[1.01] active:scale-[0.98] transition-all text-center w-full sm:w-auto"
+            className="px-5 py-3 bg-primary hover:bg-primary-dark text-white rounded-2xl text-[11px] sm:text-xs font-extrabold shadow-md shadow-primary/20 hover:scale-[1.01] active:scale-[0.98] transition-all text-center w-full sm:w-auto"
           >
             Find a Specialist
           </Link>
           <Link 
             to="/about"
-            className="px-5 py-3 border border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-2xl text-[11px] font-extrabold hover:scale-[1.01] active:scale-[0.98] transition-all text-center w-full sm:w-auto"
+            className="px-5 py-3 border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-2xl text-[11px] sm:text-xs font-extrabold shadow-sm hover:scale-[1.01] active:scale-[0.98] transition-all text-center w-full sm:w-auto"
           >
             Learn About HealthVerse
           </Link>
