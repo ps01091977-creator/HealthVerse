@@ -271,7 +271,7 @@ const EmergencySOS = () => {
   // WebSocket for live responder dispatch tracking
   useEffect(() => {
     if (token) {
-      const socketUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
+      const socketUrl = import.meta.env.VITE_BACKEND_URL || 'https://healthverse-2.onrender.com'
       const socket = io(socketUrl)
 
       // Join sandbox user room

@@ -109,7 +109,7 @@ const DoctorDashboard = () => {
   useEffect(() => {
     if (dToken && dashData?.latestAppointments?.[0]) {
       const docId = dashData.latestAppointments[0].docId
-      const socketUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
+      const socketUrl = import.meta.env.VITE_BACKEND_URL || 'https://healthverse-2.onrender.com'
       const socket = io(socketUrl)
 
       socket.emit('join_doctor', docId)

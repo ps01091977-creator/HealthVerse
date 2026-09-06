@@ -157,7 +157,7 @@ const Dashboard = () => {
   // Sockets for real-time dashboard refresh
   useEffect(() => {
     if (aToken) {
-      const socketUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
+      const socketUrl = import.meta.env.VITE_BACKEND_URL || 'https://healthverse-2.onrender.com'
       const socket = io(socketUrl)
 
       socket.emit('join_admin')
