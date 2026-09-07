@@ -10,7 +10,8 @@ import {
   Users, 
   Award, 
   HeartHandshake,
-  ArrowRight
+  ArrowRight,
+  FileText
 } from 'lucide-react'
 
 const HomeFeatures = () => {
@@ -39,12 +40,12 @@ const HomeFeatures = () => {
       color: "from-red-600 to-orange-500"
     },
     {
-      title: "Pharmacy Catalog & Store",
-      description: "Order medical supplies, check live stock status indicators, upload prescription checkout records, and enjoy secure digital payment transactions.",
+      title: "AI Medical Report Analyzer & RAG",
+      description: "Upload medical lab reports and prescriptions to get metric breakdowns, abnormal value alerts, AI-suggested medicines, and interactive report Q&A.",
       link: "/pharmacy-shop",
-      linkText: "Open Pharmacy Store",
-      icon: Pill,
-      color: "from-indigo-600 to-purple-500"
+      linkText: "Analyze Report with AI",
+      icon: FileText,
+      color: "from-indigo-600 to-teal-500"
     }
   ]
 

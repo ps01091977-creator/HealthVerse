@@ -1,278 +1,274 @@
-import React, { useContext, useEffect, useState } from 'react'
+import React, { useContext, useEffect, useState, useRef } from 'react'
 import { AppContext } from '../context/AppContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 import { 
-  Pill, 
-  Search, 
-  ClipboardList, 
-  Check, 
+  FileText, 
+  UploadCloud, 
+  Sparkles, 
+  CheckCircle2, 
+  AlertTriangle, 
   Activity, 
+  Pill, 
+  ShieldAlert, 
+  ShieldCheck, 
+  Send, 
+  Bot, 
+  Trash2, 
   Plus, 
-  Minus,
-  Sparkles,
-  ArrowRight,
-  X,
-  Thermometer,
-  Heart,
-  ShieldAlert,
-  Flame,
-  Wind,
-  Bot,
-  Send,
-  AlertTriangle,
-  FileText,
+  ArrowRight, 
+  Printer, 
+  Info, 
+  RotateCcw, 
+  Check, 
+  X, 
+  Zap, 
+  Heart, 
+  Eye, 
+  Clock, 
+  ClipboardList, 
+  FileCheck, 
+  ChevronRight, 
+  MessageSquare,
   HelpCircle,
-  Clock,
-  Info,
-  Layers,
-  ArrowDownUp,
-  ShoppingCart,
-  CheckCircle2,
-  Trash2,
-  ShieldCheck,
-  Truck,
-  Award,
-  Zap,
-  Tag,
-  ChevronRight,
-  BadgePercent,
-  Star
+  Apple,
+  TrendingUp,
+  TrendingDown,
+  AlertOctagon,
+  Copy
 } from 'lucide-react'
 
 const PharmacyShop = () => {
   const { backendUrl, token } = useContext(AppContext)
 
-  // Sub-sections navigation: 'store' (Medicine Store & Catalog), 'checker' (Drug Interaction Checker), 'prescriptions' (Doctor Prescriptions)
-  const [activeTab, setActiveTab] = useState('store')
+  // Tabs: 'report' (AI Report Analyzer & RAG), 'checker' (AI Drug Interaction Checker), 'prescriptions' (Doctor Consultation Prescriptions)
+  const [activeTab, setActiveTab] = useState('report')
 
-  // Catalog State
-  const [medicines, setMedicines] = useState([])
-  const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('all')
-  const [selectedDisease, setSelectedDisease] = useState('all')
-  const [isLoading, setIsLoading] = useState(false)
+  // --- Report Analyzer State ---
+  const [inputMode, setInputMode] = useState('file') // 'file' | 'text'
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [filePreview, setFilePreview] = useState(null)
+  const [reportText, setReportText] = useState('')
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [analysisStep, setAnalysisStep] = useState('')
+  const [analysisResult, setAnalysisResult] = useState(null)
+  const fileInputRef = useRef(null)
 
-  // Clinical Guide Modal
-  const [selectedMedicine, setSelectedMedicine] = useState(null)
+  // --- RAG Chat on Current Report State ---
+  const [ragChatHistory, setRagChatHistory] = useState([])
+  const [ragQuery, setRagQuery] = useState('')
+  const [isRagLoading, setIsRagLoading] = useState(false)
+  const chatBottomRef = useRef(null)
 
-  // Cart State
-  const [cart, setCart] = useState([])
-  const [isCartOpen, setIsCartOpen] = useState(false)
-  const [deliveryAddress, setDeliveryAddress] = useState('')
-  const [deliveryPhone, setDeliveryPhone] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('Cash on Delivery')
-  const [isPlacingOrder, setIsPlacingOrder] = useState(false)
-  const [orderSuccessModal, setOrderSuccessModal] = useState(null)
-
-  // Drug Interaction Checker State
+  // --- Drug Checker State ---
   const [checkerDrugs, setCheckerDrugs] = useState(['', ''])
   const [checkerResult, setCheckerResult] = useState(null)
   const [isCheckerLoading, setIsCheckerLoading] = useState(false)
 
-  // Consultation Prescriptions State
+  // --- Doctor Prescriptions State ---
   const [userPrescriptions, setUserPrescriptions] = useState([])
   const [isPrescLoading, setIsPrescLoading] = useState(false)
 
-  // AI Advisor State
-  const [aiQuery, setAiQuery] = useState('')
-  const [aiReply, setAiReply] = useState(null)
-  const [isAiLoading, setIsAiLoading] = useState(false)
+  // Sample Reports for Instant Demo
+  const sampleReports = [
+    {
+      id: 'diabetes',
+      title: '🩸 Diabetes & Lipid Profile (HbA1c / Cholesterol)',
+      text: `PATIENT: Rohit Sharma | AGE: 45 | GENDER: Male | DATE: 04-Sep-2026
+LAB: HealthVerse Metropolis Diagnostics
+TEST PARAMETERS:
+1. Fasting Blood Sugar (FBS): 158 mg/dL (Normal Range: 70 - 99 mg/dL) [HIGH]
+2. Post Prandial Blood Sugar (PPBS): 224 mg/dL (Normal Range: < 140 mg/dL) [HIGH]
+3. HbA1c (Glycated Hemoglobin): 7.6 % (Normal Range: < 5.7 %, Diabetic > 6.5 %) [HIGH]
+4. Serum Total Cholesterol: 232 mg/dL (Desirable: < 200 mg/dL) [HIGH]
+5. Triglycerides: 210 mg/dL (Normal: < 150 mg/dL) [HIGH]
+6. HDL Cholesterol (Good): 36 mg/dL (Normal: > 40 mg/dL) [LOW]
+7. Serum Creatinine: 0.9 mg/dL (Normal Range: 0.7 - 1.3 mg/dL) [NORMAL]`
+    },
+    {
+      id: 'cbc',
+      title: '🔬 Complete Blood Count (CBC & Anemia)',
+      text: `PATIENT: Ananya Verma | AGE: 28 | GENDER: Female | DATE: 02-Sep-2026
+LAB: HealthVerse Clinical Pathology
+TEST PARAMETERS:
+1. Hemoglobin (Hb): 9.8 g/dL (Normal Range: 12.0 - 15.5 g/dL) [LOW]
+2. Total WBC Count: 12,400 /cumm (Normal Range: 4,000 - 11,000 /cumm) [HIGH]
+3. RBC Count: 3.4 million/cumm (Normal Range: 3.8 - 4.8 million/cumm) [LOW]
+4. Platelet Count: 165,000 /cumm (Normal Range: 150,000 - 450,000 /cumm) [NORMAL]
+5. Packed Cell Volume (PCV): 30.5 % (Normal Range: 36 - 46 %) [LOW]
+6. ESR (1st Hour): 34 mm/hr (Normal Range: 0 - 20 mm/hr) [HIGH]`
+    },
+    {
+      id: 'thyroid',
+      title: '🦋 Thyroid (TSH) & Vitamin Deficiency',
+      text: `PATIENT: Sunita Devi | AGE: 38 | GENDER: Female | DATE: 05-Sep-2026
+LAB: HealthVerse Diagnostic Labs
+TEST PARAMETERS:
+1. TSH (Thyroid Stimulating Hormone): 8.4 uIU/mL (Normal Range: 0.4 - 4.2 uIU/mL) [HIGH]
+2. Total T3: 0.8 ng/mL (Normal Range: 0.8 - 2.0 ng/mL) [BORDERLINE LOW]
+3. Free T4: 0.72 ng/dL (Normal Range: 0.93 - 1.7 ng/dL) [LOW]
+4. Vitamin D (25-OH): 14.2 ng/mL (Deficiency: < 20 ng/mL, Normal: 30 - 100 ng/mL) [LOW]
+5. Vitamin B12: 180 pg/mL (Normal Range: 211 - 911 pg/mL) [LOW]`
+    },
+    {
+      id: 'lft',
+      title: '🫀 Liver Function (LFT) & Uric Acid',
+      text: `PATIENT: Amit Patel | AGE: 52 | GENDER: Male | DATE: 01-Sep-2026
+LAB: HealthVerse Diagnostics
+TEST PARAMETERS:
+1. SGPT / ALT: 72 U/L (Normal Range: 7 - 56 U/L) [HIGH]
+2. SGOT / AST: 58 U/L (Normal Range: 10 - 40 U/L) [HIGH]
+3. Total Bilirubin: 1.1 mg/dL (Normal Range: 0.2 - 1.2 mg/dL) [NORMAL]
+4. Alkaline Phosphatase (ALP): 142 U/L (Normal Range: 44 - 147 U/L) [NORMAL]
+5. Serum Uric Acid: 7.8 mg/dL (Normal Range: 3.4 - 7.0 mg/dL) [HIGH]`
+    }
+  ]
 
-  // Fetch medicines
-  const fetchMedicines = async () => {
-    setIsLoading(true)
-    try {
-      const { data } = await axios.get(
-        `${backendUrl}/api/pharmacy/list?search=${search}&category=${category}&disease=${selectedDisease}`
-      )
-      if (data.success) {
-        setMedicines(data.medicines)
-      }
-    } catch (err) {
-      toast.error('Failed to load medicine database.')
-    } finally {
-      setIsLoading(false)
+  // Handle File Selection
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 10 * 1024 * 1024) {
+      return toast.warn('File size exceeds 10MB limit.')
+    }
+
+    setSelectedFile(file)
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader()
+      reader.onload = (ev) => setFilePreview(ev.target?.result)
+      reader.readAsDataURL(file)
+    } else {
+      setFilePreview(null)
     }
   }
 
-  // Fetch Doctor Prescriptions from Appointments
-  const fetchUserPrescriptions = async () => {
-    if (!token) return
-    setIsPrescLoading(true)
+  // Load Preset Sample Report
+  const handleLoadSample = (sample) => {
+    setInputMode('text')
+    setReportText(sample.text)
+    setSelectedFile(null)
+    setFilePreview(null)
+    toast.info(`Loaded sample: ${sample.title}`)
+  }
+
+  // Clear Report Input
+  const handleClear = () => {
+    setSelectedFile(null)
+    setFilePreview(null)
+    setReportText('')
+    setAnalysisResult(null)
+    setRagChatHistory([])
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  // Submit Report for AI Analysis
+  const handleAnalyzeReport = async (e) => {
+    if (e) e.preventDefault()
+
+    if (inputMode === 'file' && !selectedFile) {
+      return toast.warn('Please select a report image or PDF to analyze.')
+    }
+    if (inputMode === 'text' && !reportText.trim()) {
+      return toast.warn('Please enter or paste your medical test text.')
+    }
+
+    setIsAnalyzing(true)
+    setAnalysisResult(null)
+    setRagChatHistory([])
+
+    // Simulated progress steps
+    setAnalysisStep('1/4: Reading document & OCR text parsing...')
+    const step2Timer = setTimeout(() => setAnalysisStep('2/4: Extracting clinical parameters & reference intervals...'), 1200)
+    const step3Timer = setTimeout(() => setAnalysisStep('3/4: Assessing biomarker abnormalities & clinical risk...'), 2400)
+    const step4Timer = setTimeout(() => setAnalysisStep('4/4: Generating recommended medicines, diet & doctor guide...'), 3600)
+
     try {
-      const { data } = await axios.get(`${backendUrl}/api/user/appointments`, { headers: { token } })
-      if (data.success) {
-        const prescriptions = data.appointments.filter(
-          appt => appt.isCompleted && appt.prescription && appt.prescription.length > 0
-        )
-        setUserPrescriptions(prescriptions)
+      const formData = new FormData()
+      if (inputMode === 'file' && selectedFile) {
+        formData.append('reportFile', selectedFile)
+      }
+      if (reportText.trim()) {
+        formData.append('report_text', reportText)
+      }
+
+      const { data } = await axios.post(
+        `${backendUrl}/api/user/ai/report-rag-analyze`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            ...(token ? { token } : {})
+          }
+        }
+      )
+
+      if (data.success && data.data) {
+        setAnalysisResult(data.data)
+        // Initialize RAG chat greeting
+        setRagChatHistory([
+          {
+            sender: 'ai',
+            text: `Hello! I have analyzed **"${data.data.report_title || 'your uploaded medical report'}"**. You can ask me any questions about your test values, suggested medicines, diet, or precautions!`
+          }
+        ])
+        toast.success('🎉 Report analyzed successfully!')
+      } else {
+        toast.error(data.message || 'Report analysis failed.')
       }
     } catch (err) {
       console.error(err)
+      toast.error(err.response?.data?.message || 'Server error while analyzing medical report.')
     } finally {
-      setIsPrescLoading(false)
+      clearTimeout(step2Timer)
+      clearTimeout(step3Timer)
+      clearTimeout(step4Timer)
+      setIsAnalyzing(false)
+      setAnalysisStep('')
     }
   }
 
-  useEffect(() => {
-    fetchMedicines()
-  }, [search, category, selectedDisease])
-
-  useEffect(() => {
-    if (token) {
-      fetchUserPrescriptions()
-    }
-  }, [token])
-
-  // Cart Management
-  const addToCart = (med) => {
-    setCart(prev => {
-      const existing = prev.find(item => item._id === med._id)
-      if (existing) {
-        return prev.map(item => item._id === med._id ? { ...item, quantity: item.quantity + 1 } : item)
-      }
-      return [...prev, { ...med, quantity: 1 }]
-    })
-    toast.success(`Added ${med.name} to cart!`, { autoClose: 1800 })
-  }
-
-  const updateCartQuantity = (medId, delta) => {
-    setCart(prev => {
-      return prev.map(item => {
-        if (item._id === medId) {
-          const newQty = item.quantity + delta
-          return newQty > 0 ? { ...item, quantity: newQty } : null
-        }
-        return item
-      }).filter(Boolean)
-    })
-  }
-
-  const removeFromCart = (medId) => {
-    setCart(prev => prev.filter(item => item._id !== medId))
-  }
-
-  // Calculate totals
-  const subtotalPrice = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-  const totalMrp = cart.reduce((sum, item) => sum + ((item.mrp || item.price * 1.2) * item.quantity), 0)
-  const totalSavings = Math.max(0, Math.round(totalMrp - subtotalPrice))
-  const deliveryFee = subtotalPrice >= 299 || subtotalPrice === 0 ? 0 : 40
-  const finalPayable = subtotalPrice + deliveryFee
-  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
-
-  // Handle Checkout Order Placement
-  const handlePlaceOrder = async (e) => {
+  // Handle RAG Follow-up Chat Question
+  const handleRagChatSubmit = async (e) => {
     e.preventDefault()
-    if (!token) {
-      toast.warn('Please sign in to your patient account to place orders.')
-      return
-    }
-    if (cart.length === 0) {
-      toast.error('Your cart is empty.')
-      return
-    }
-    if (!deliveryAddress.trim() || !deliveryPhone.trim()) {
-      toast.warn('Please enter complete delivery address and phone number.')
-      return
+    if (!ragQuery.trim()) return
+    if (!analysisResult) {
+      return toast.warn('Please analyze a report first before asking questions.')
     }
 
-    setIsPlacingOrder(true)
-    try {
-      const orderPayload = {
-        patientName: 'Patient User',
-        items: cart.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          packSize: item.packSize || 'Standard Pack'
-        })),
-        totalAmount: finalPayable,
-        paymentMethod,
-        phone: deliveryPhone,
-        address: deliveryAddress,
-        paymentStatus: paymentMethod === 'Cash on Delivery' ? 'Pending' : 'Paid'
-      }
-
-      const { data } = await axios.post(`${backendUrl}/api/pharmacy/order`, orderPayload, {
-        headers: { token }
-      })
-
-      if (data.success) {
-        setOrderSuccessModal({
-          orderId: `HV-MED-${Math.floor(100000 + Math.random() * 900000)}`,
-          amount: finalPayable,
-          itemsCount: totalCartCount,
-          address: deliveryAddress,
-          paymentMethod
-        })
-        setCart([])
-        setIsCartOpen(false)
-        toast.success('🎉 Pharmacy order placed successfully!')
-      } else {
-        toast.error(data.message || 'Order placement failed')
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Server error while placing order.')
-    } finally {
-      setIsPlacingOrder(false)
-    }
-  }
-
-  // AI Pharmacy Advisor call
-  const handleAiAdvisor = async (e) => {
-    if (e) e.preventDefault()
-    if (!aiQuery.trim()) return
-    setIsAiLoading(true)
-    setAiReply(null)
-
-    const medsContext = medicines.map(m => `- ${m.name} (${m.category}): treats ${m.diseases.join(', ')}. Generic name: ${m.genericName || m.name}`).join('\n')
-
-    const messageToSend = `CONTEXT: You are the HealthVerse Clinical Medicine Advisor. You have access to our medical database:
-${medsContext}
-
-USER ENQUIRY: ${aiQuery}
-
-INSTRUCTIONS:
-1. Provide a professional, concise, clinical analysis of the symptoms or questions.
-2. Recommend the matching drug name(s) from our database above if appropriate.
-3. Explain their dosage, generic names, and side effects.
-4. Wrap any suggested drug name from our database exactly in brackets, e.g. [Dolo 650mg Tablet] or [Augmentin 625 Duo Tablet].
-5. Always advise the patient to consult a doctor. Do not wrap in general markdown code blocks.`
+    const userMessage = ragQuery.trim()
+    setRagChatHistory(prev => [...prev, { sender: 'user', text: userMessage }])
+    setRagQuery('')
+    setIsRagLoading(true)
 
     try {
       const { data } = await axios.post(
-        `${backendUrl}/api/user/ai/chatbot`,
-        { message: messageToSend, chat_history: [] },
+        `${backendUrl}/api/user/ai/report-rag-chat`,
+        {
+          message: userMessage,
+          report_context: analysisResult,
+          chat_history: ragChatHistory.slice(-6)
+        },
         { headers: token ? { token } : {} }
       )
+
       if (data.success && data.data) {
-        const replyText = data.data.reply
-        const recommendedMeds = []
-
-        medicines.forEach(m => {
-          if (replyText.toLowerCase().includes(`[${m.name.toLowerCase()}]`) || replyText.toLowerCase().includes(m.name.toLowerCase())) {
-            if (!recommendedMeds.find(x => x._id === m._id)) {
-              recommendedMeds.push(m)
-            }
-          }
-        })
-
-        setAiReply({
-          text: replyText.replace(/\[/g, '').replace(/\]/g, ''),
-          medicines: recommendedMeds
-        })
+        setRagChatHistory(prev => [...prev, { sender: 'ai', text: data.data.reply }])
       } else {
-        toast.error('AI advisor is currently offline.')
+        toast.error('Failed to get answer from AI.')
       }
     } catch (err) {
-      toast.error('AI advisor is currently offline.')
+      console.error(err)
+      toast.error('AI chat module offline.')
     } finally {
-      setIsAiLoading(false)
+      setIsRagLoading(false)
+      setTimeout(() => {
+        chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 100)
     }
   }
 
-  // Check drug interactions using Gemini
+  // Handle Drug Interaction Checker
   const handleCheckInteractions = async (e) => {
     e.preventDefault()
     const activeDrugs = checkerDrugs.filter(d => d.trim() !== '')
@@ -331,31 +327,49 @@ INSTRUCTIONS:
     setCheckerDrugs(updated)
   }
 
-  // Disease mapping with icons and colors
-  const diseaseCategories = [
-    { id: 'all', label: 'All Health Categories', icon: Pill, color: 'border-zinc-200 dark:border-zinc-800' },
-    { id: 'Fever', label: 'Fever & Pain Relief', icon: Thermometer, color: 'text-red-500 bg-red-500/5 border-red-500/20' },
-    { id: 'Diabetes', label: 'Diabetes & Glucose', icon: Activity, color: 'text-orange-500 bg-orange-500/5 border-orange-500/20' },
-    { id: 'Hypertension', label: 'Cardiac & BP', icon: Heart, color: 'text-rose-500 bg-rose-500/5 border-rose-500/20' },
-    { id: 'Bacterial Infections', label: 'Antibiotics & Throat', icon: ShieldAlert, color: 'text-amber-500 bg-amber-500/5 border-amber-500/20' },
-    { id: 'Acidity', label: 'Acidity & Digestion', icon: Flame, color: 'text-yellow-600 bg-yellow-500/5 border-yellow-500/20' },
-    { id: 'Allergies', label: 'Allergy & Cold', icon: Sparkles, color: 'text-teal-500 bg-teal-500/5 border-teal-500/20' },
-    { id: 'Asthma', label: 'Asthma & Wheezing', icon: Wind, color: 'text-sky-500 bg-sky-500/5 border-sky-500/20' }
-  ]
+  // Fetch Doctor Prescriptions from Appointments
+  const fetchUserPrescriptions = async () => {
+    if (!token) return
+    setIsPrescLoading(true)
+    try {
+      const { data } = await axios.get(`${backendUrl}/api/user/appointments`, { headers: { token } })
+      if (data.success) {
+        const prescriptions = data.appointments.filter(
+          appt => appt.isCompleted && appt.prescription && appt.prescription.length > 0
+        )
+        setUserPrescriptions(prescriptions)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsPrescLoading(false)
+    }
+  }
 
-  // Category mapping
-  const categories = [
-    { id: 'all', label: 'All Products' },
-    { id: 'Pain Relief & Fever', label: 'Pain & Fever' },
-    { id: 'Antibiotics & Infections', label: 'Antibiotics' },
-    { id: 'Acidity & Digestion', label: 'Acidity & Gut' },
-    { id: 'Cardiac & BP', label: 'Cardiac & BP' },
-    { id: 'Diabetes & Chronic Care', label: 'Diabetes Care' },
-    { id: 'Vitamins & Immunity', label: 'Vitamins & Minerals' },
-    { id: 'Allergies & Respiratory', label: 'Allergies & Cold' },
-    { id: 'Skin & Hair Care', label: 'Dermatology & Skin' },
-    { id: 'Medical Devices & Diagnostics', label: 'Medical Devices' }
-  ]
+  useEffect(() => {
+    if (token) {
+      fetchUserPrescriptions()
+    }
+  }, [token])
+
+  // Copy clinical summary to clipboard
+  const handleCopySummary = () => {
+    if (!analysisResult) return
+    const textToCopy = `HEALTHVERSE CLINICAL REPORT ANALYSIS
+Report: ${analysisResult.report_title}
+Patient: ${analysisResult.patient_name}
+Severity: ${analysisResult.severity}
+Summary: ${analysisResult.overall_summary}
+
+METRICS:
+${analysisResult.metrics?.map(m => `- ${m.name}: ${m.value} ${m.unit} (Ref: ${m.reference_range}) -> [${m.status}]`).join('\n')}
+
+SUGGESTED MEDICATIONS:
+${analysisResult.suggested_medicines?.map(m => `- ${m.name} (${m.generic_name}): ${m.dosage_guideline} | ${m.indication}`).join('\n')}`
+
+    navigator.clipboard.writeText(textToCopy)
+    toast.success('📋 Clinical report summary copied!')
+  }
 
   return (
     <div className="space-y-8 text-left max-w-7xl mx-auto py-6 px-4 sm:px-6 relative">
@@ -364,326 +378,594 @@ INSTRUCTIONS:
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="absolute top-1/3 right-10 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none -z-10" />
 
-      {/* 🌟 1. HERO BANNER: TRUST & CERTIFICATION */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-950 to-indigo-950 border border-zinc-800 p-6 sm:p-8 rounded-3xl shadow-xl text-white">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+      {/* 🌟 1. HERO BANNER: CLINICAL REPORT AI & SAFETY HUB */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50/80 via-white to-emerald-50/50 dark:from-zinc-900 dark:via-zinc-950 dark:to-indigo-950 border border-zinc-200/80 dark:border-zinc-800 p-6 sm:p-8 rounded-3xl shadow-sm dark:shadow-xl text-zinc-900 dark:text-white">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-primary/10 dark:bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
         
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 relative z-10">
           <div className="space-y-3 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-primary/20 text-indigo-300 border border-primary/30">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> ISO 9001:2015 Certified Pharmacy Network
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-emerald-500/10 text-emerald-700 dark:bg-primary/20 dark:text-indigo-300 border border-emerald-500/20 dark:border-primary/30">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> ISO 15189 Clinical Lab AI & Safety System
             </div>
             
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
-              HealthVerse <span className="bg-gradient-to-r from-primary via-indigo-300 to-emerald-300 bg-clip-text text-transparent">e-Pharmacy & Diagnostic Hub</span>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white leading-tight">
+              HealthVerse <span className="bg-gradient-to-r from-primary via-indigo-600 to-teal-600 dark:from-primary dark:via-indigo-300 dark:to-emerald-300 bg-clip-text text-transparent">Clinical Report AI & Medicine Advisor</span>
             </h1>
             
-            <p className="text-zinc-300 text-xs sm:text-sm font-medium leading-relaxed">
-              100% Genuine, verified medications sourced directly from top pharmaceutical manufacturers (GSK, Abbott, Sun Pharma, Cipla, Pfizer). Delivered in temperature-controlled packaging.
+            <p className="text-zinc-600 dark:text-zinc-300 text-xs sm:text-sm font-medium leading-relaxed">
+              Upload blood tests, pathology reports, or prescriptions. Get instant biomarker explanations, abnormal metric badges, tailored medicine suggestions, and interactive RAG report Q&A.
             </p>
 
-            {/* Guarantee Pills */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-[11px] font-semibold text-zinc-300">
-              <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-xl">
-                <Truck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>⚡ 2-Hr Express Delivery</span>
+            {/* Feature Guarantee Badges */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+              <div className="flex items-center gap-1.5 bg-white/80 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 px-2.5 py-1.5 rounded-xl shadow-xs">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>Multimodal Vision OCR</span>
               </div>
-              <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-xl">
-                <Award className="w-3.5 h-3.5 text-amber-400" />
-                <span>100% Genuine Certified</span>
+              <div className="flex items-center gap-1.5 bg-white/80 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 px-2.5 py-1.5 rounded-xl shadow-xs">
+                <Activity className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                <span>Biomarker High/Low Flags</span>
               </div>
-              <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-xl">
-                <BadgePercent className="w-3.5 h-3.5 text-primary" />
-                <span>Up to 25% Off MRP</span>
+              <div className="flex items-center gap-1.5 bg-white/80 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 px-2.5 py-1.5 rounded-xl shadow-xs">
+                <Pill className="w-3.5 h-3.5 text-primary" />
+                <span>Smart Medicine Suggestions</span>
               </div>
-              <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-xl">
-                <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Pharmacist Verified</span>
+              <div className="flex items-center gap-1.5 bg-white/80 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 px-2.5 py-1.5 rounded-xl shadow-xs">
+                <Bot className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Interactive RAG Q&A</span>
               </div>
             </div>
           </div>
 
-          {/* Quick Cart Status & Tab Switcher */}
-          <div className="flex flex-col sm:flex-row lg:flex-col gap-3 w-full lg:w-auto flex-shrink-0">
-            {/* View Cart Button */}
-            <button
-              onClick={() => setIsCartOpen(true)}
-              className="flex items-center justify-between gap-4 bg-primary hover:bg-primary-dark text-white px-5 py-3.5 rounded-2xl font-bold text-sm shadow-lg shadow-primary/30 transition-all cursor-pointer group"
+          {/* Tab Switcher */}
+          <div className="flex bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-1.5 rounded-2xl text-xs w-full lg:w-auto flex-shrink-0">
+            <button 
+              onClick={() => setActiveTab('report')}
+              className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold cursor-pointer transition-all ${
+                activeTab === 'report' 
+                  ? 'bg-white dark:bg-zinc-800 text-primary dark:text-white shadow-sm' 
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+              }`}
             >
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 transition-transform group-hover:scale-110" />
-                <span>My Pharmacy Cart</span>
-              </div>
-              <span className="bg-white text-primary text-xs px-2.5 py-0.5 rounded-full font-black">
-                {totalCartCount} items • ₹{finalPayable}
-              </span>
+              <FileText className="w-4 h-4" />
+              Report Analyzer (RAG)
             </button>
-
-            {/* Navigation Tabs */}
-            <div className="flex bg-zinc-900 border border-zinc-800 p-1 rounded-2xl text-xs">
-              <button 
-                onClick={() => setActiveTab('store')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-bold cursor-pointer transition-all ${
-                  activeTab === 'store' 
-                    ? 'bg-white text-zinc-950 shadow-md' 
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <Pill className="w-3.5 h-3.5" />
-                Medicine Store
-              </button>
-              <button 
-                onClick={() => setActiveTab('checker')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-bold cursor-pointer transition-all ${
-                  activeTab === 'checker' 
-                    ? 'bg-white text-zinc-950 shadow-md' 
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <Activity className="w-3.5 h-3.5" />
-                Drug Checker
-              </button>
-              <button 
-                onClick={() => setActiveTab('prescriptions')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-bold cursor-pointer transition-all ${
-                  activeTab === 'prescriptions' 
-                    ? 'bg-white text-zinc-950 shadow-md' 
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <ClipboardList className="w-3.5 h-3.5" />
-                My Prescriptions
-              </button>
-            </div>
+            <button 
+              onClick={() => setActiveTab('checker')}
+              className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold cursor-pointer transition-all ${
+                activeTab === 'checker' 
+                  ? 'bg-white dark:bg-zinc-800 text-primary dark:text-white shadow-sm' 
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <Activity className="w-4 h-4" />
+              Drug Checker
+            </button>
+            <button 
+              onClick={() => setActiveTab('prescriptions')}
+              className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold cursor-pointer transition-all ${
+                activeTab === 'prescriptions' 
+                  ? 'bg-white dark:bg-zinc-800 text-primary dark:text-white shadow-sm' 
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <ClipboardList className="w-4 h-4" />
+              My Prescriptions
+            </button>
           </div>
         </div>
       </div>
 
-      {/* 🛍️ TAB 1: MEDICINE STORE & CATALOG */}
-      {activeTab === 'store' && (
-        <div className="space-y-6">
+      {/* 📄 TAB 1: AI MEDICAL REPORT ANALYZER & RAG ASSISTANT */}
+      {activeTab === 'report' && (
+        <div className="space-y-8">
           
-          {/* Health Category Filter Bar */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-4 sm:p-5 rounded-3xl shadow-sm space-y-3">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
-                <Activity className="w-4 h-4 text-primary" /> Filter by Health Condition
-              </h3>
-              {selectedDisease !== 'all' && (
-                <button 
-                  onClick={() => setSelectedDisease('all')}
-                  className="text-xs text-primary hover:underline font-bold cursor-pointer"
-                >
-                  Reset Filter
-                </button>
-              )}
-            </div>
+          {/* UPLOAD & INPUT WORKSPACE */}
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-5 sm:p-7 rounded-3xl shadow-sm space-y-6">
             
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-              {diseaseCategories.map((dis) => {
-                const Icon = dis.icon
-                const isSelected = selectedDisease === dis.id
-                return (
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-zinc-100 dark:border-zinc-800">
+              <div>
+                <h2 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                  <UploadCloud className="w-5 h-5 text-primary" /> Upload Medical Lab Report or Prescription
+                </h2>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  Supports blood test reports, pathology panels (CBC, HbA1c, LFT, KFT, Thyroid), MRI/X-ray summaries, and doctor prescription slips.
+                </p>
+              </div>
+
+              {/* Mode Toggle */}
+              <div className="flex bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setInputMode('file')}
+                  className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
+                    inputMode === 'file' ? 'bg-white dark:bg-zinc-700 text-primary dark:text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                  }`}
+                >
+                  Document / Image
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInputMode('text')}
+                  className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
+                    inputMode === 'text' ? 'bg-white dark:bg-zinc-700 text-primary dark:text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                  }`}
+                >
+                  Paste Report Text
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Demo Sample Badges */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
+                <Zap className="w-3.5 h-3.5 text-amber-500" /> Instant Demo Samples (Click to test with 1-click):
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {sampleReports.map(sample => (
                   <button
-                    key={dis.id}
-                    onClick={() => {
-                      setSelectedDisease(dis.id)
-                      setCategory('all')
-                    }}
-                    className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border text-center cursor-pointer transition-all duration-200 ${
-                      isSelected
-                        ? 'bg-primary text-white border-primary shadow-md shadow-primary/20 scale-[1.03]'
-                        : `bg-zinc-50 dark:bg-zinc-850/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${dis.color}`
-                    }`}
+                    key={sample.id}
+                    type="button"
+                    onClick={() => handleLoadSample(sample)}
+                    className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-800 text-[11px] font-medium text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
                   >
-                    <Icon className="w-4 h-4 mb-1" />
-                    <span className="text-[10px] font-bold leading-tight line-clamp-1">{dis.label}</span>
+                    {sample.title}
                   </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Search and Category Badges */}
-          <div className="space-y-3">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
-              <input
-                id="pharmacy-search-input"
-                name="pharmacySearch"
-                type="text"
-                placeholder="Search by brand name (Dolo, Augmentin, Pan-D), active salt (Paracetamol, Metformin), or manufacturer..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-12 pr-4 py-3.5 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-zinc-800 dark:text-zinc-200 shadow-sm"
-              />
+                ))}
+              </div>
             </div>
 
-            {/* Categories Pills */}
-            <div className="flex gap-2 overflow-x-auto pb-1.5 no-scrollbar scroll-smooth">
-              {categories.map((cat) => {
-                const isSelected = category === cat.id
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => {
-                      setCategory(cat.id)
-                      setSelectedDisease('all')
-                    }}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap border transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-primary text-white border-primary shadow-md shadow-primary/10'
-                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+            {/* Main Input Form */}
+            <form onSubmit={handleAnalyzeReport} className="space-y-5">
+              
+              {inputMode === 'file' ? (
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="report-file-input"
+                  />
 
-          {/* Product Grid */}
-          {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                <div key={n} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 rounded-3xl h-72 animate-pulse space-y-3" />
-              ))}
-            </div>
-          ) : medicines.length === 0 ? (
-            <div className="py-20 text-center border border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl space-y-3 bg-white dark:bg-zinc-900">
-              <Pill className="w-10 h-10 mx-auto text-zinc-400 animate-pulse" />
-              <p className="text-zinc-700 dark:text-zinc-300 text-sm font-bold">No medicines matching your search.</p>
-              <p className="text-zinc-400 text-xs">Try clearing filters or search by salt name (e.g. Paracetamol, Metformin, Telmisartan).</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {medicines.map((med) => {
-                const inCart = cart.find(item => item._id === med._id)
-                const discountVal = med.discount || Math.round(((med.mrp - med.price) / (med.mrp || 1)) * 100) || 15
-
-                return (
-                  <div 
-                    key={med._id} 
-                    className="group bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 p-4 rounded-3xl shadow-sm flex flex-col justify-between space-y-4 hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-xl transition-all duration-300 relative"
-                  >
-                    {/* Top Image & Badges */}
-                    <div className="space-y-3">
-                      <div className="relative w-full h-40 bg-zinc-50 dark:bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-100 dark:border-zinc-850 flex items-center justify-center p-2">
-                        <img 
-                          src={med.image || "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=400&auto=format&fit=crop"} 
-                          alt={med.name}
-                          className="w-full h-full object-cover rounded-xl transition-transform duration-500 group-hover:scale-105"
-                        />
-                        
-                        {/* Rx vs OTC Badge */}
-                        <div className="absolute top-2 left-2 flex gap-1">
-                          {med.requiresPrescription ? (
-                            <span className="bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-lg shadow-sm">
-                              Rx Required
-                            </span>
-                          ) : (
-                            <span className="bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded-lg shadow-sm">
-                              OTC
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Discount Badge */}
-                        {discountVal > 0 && (
-                          <div className="absolute top-2 right-2 bg-amber-500 text-zinc-950 text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-0.5">
-                            <Tag className="w-3 h-3" /> {discountVal}% OFF
-                          </div>
-                        )}
+                  {!selectedFile ? (
+                    <label
+                      htmlFor="report-file-input"
+                      className="flex flex-col items-center justify-center p-8 sm:p-12 border-2 border-dashed border-zinc-300 dark:border-zinc-750 hover:border-primary dark:hover:border-primary rounded-3xl bg-zinc-50/60 dark:bg-zinc-950/40 hover:bg-primary/5 dark:hover:bg-primary/5 transition-all cursor-pointer text-center space-y-3 group"
+                    >
+                      <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform shadow-xs">
+                        <UploadCloud className="w-7 h-7" />
                       </div>
-
-                      {/* Brand, Manufacturer & Rating */}
                       <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                          <span className="font-semibold text-primary truncate max-w-[140px]">{med.manufacturer || 'Certified Pharma'}</span>
-                          <span className="flex items-center gap-0.5 font-bold text-amber-500">
-                            <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> {med.rating || 4.8}
-                          </span>
-                        </div>
-
-                        <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 group-hover:text-primary transition-colors line-clamp-1">
-                          {med.name}
-                        </h3>
-
-                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-1 font-medium">
-                          {med.composition || med.genericName}
+                        <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">
+                          Click to upload or drag & drop your medical report
                         </p>
-
-                        <p className="text-[10px] text-zinc-400">
-                          {med.packSize || 'Standard Pack'} • {med.dosageForm || 'Tablet'}
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                          Supports JPG, PNG, WEBP, and PDF files (Max 10MB)
                         </p>
                       </div>
-                    </div>
-
-                    {/* Price, Stock & Cart Actions */}
-                    <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
-                      <div className="flex items-baseline justify-between">
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-base font-extrabold text-zinc-900 dark:text-white">
-                            ₹{med.price}
-                          </span>
-                          {med.mrp > med.price && (
-                            <span className="text-xs text-zinc-400 line-through">
-                              ₹{med.mrp}
-                            </span>
-                          )}
-                        </div>
-
-                        <span className="text-[10px] font-bold text-emerald-500 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> In Stock
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => setSelectedMedicine(med)}
-                          className="w-full py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-200 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1"
-                        >
-                          <Info className="w-3.5 h-3.5 text-primary" /> Guide
-                        </button>
-
-                        {inCart ? (
-                          <div className="flex items-center justify-between bg-primary/10 border border-primary/30 rounded-xl px-2 py-1 text-xs font-bold text-primary">
-                            <button 
-                              onClick={() => updateCartQuantity(med._id, -1)}
-                              className="p-1 hover:bg-primary/20 rounded-md cursor-pointer"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span>{inCart.quantity}</span>
-                            <button 
-                              onClick={() => updateCartQuantity(med._id, 1)}
-                              className="p-1 hover:bg-primary/20 rounded-md cursor-pointer"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </div>
+                    </label>
+                  ) : (
+                    <div className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {filePreview ? (
+                          <img src={filePreview} alt="Preview" className="w-14 h-14 rounded-xl object-cover border border-zinc-200 dark:border-zinc-800 flex-shrink-0" />
                         ) : (
-                          <button
-                            onClick={() => addToCart(med)}
-                            className="w-full py-2 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm active:scale-98"
-                          >
-                            <ShoppingCart className="w-3.5 h-3.5" /> Add
-                          </button>
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                            <FileCheck className="w-6 h-6" />
+                          </div>
                         )}
+                        <div className="truncate">
+                          <p className="text-xs font-bold text-zinc-900 dark:text-white truncate">{selectedFile.name}</p>
+                          <p className="text-[10px] text-zinc-400">{(selectedFile.size / 1024).toFixed(1)} KB • Ready for AI extraction</p>
+                        </div>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={handleClear}
+                        className="p-2 text-zinc-400 hover:text-red-500 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
+                        title="Remove file"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <textarea
+                    rows={6}
+                    placeholder="Paste medical report parameters, test findings, or doctor's prescription text here (e.g. Fasting Sugar: 145 mg/dL, HbA1c: 7.2%, Hemoglobin: 11.0 g/dL)..."
+                    value={reportText}
+                    onChange={(e) => setReportText(e.target.value)}
+                    className="w-full p-4 border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 rounded-2xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-zinc-800 dark:text-zinc-200 font-mono resize-y"
+                  />
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Clear Input
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isAnalyzing}
+                  className="bg-primary hover:bg-primary-dark text-white px-7 py-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer shadow-lg shadow-primary/25 disabled:opacity-50 transition-all active:scale-98"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Sparkles className="w-4 h-4 animate-spin" />
+                      <span>Analyzing Biomarkers...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Analyze Report with Clinical AI</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Animated Analysis Progress Step Indicator */}
+              {isAnalyzing && (
+                <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl text-xs text-primary flex items-center gap-3 animate-pulse">
+                  <Activity className="w-5 h-5 flex-shrink-0 animate-bounce" />
+                  <div className="font-semibold">{analysisStep}</div>
+                </div>
+              )}
+            </form>
+          </div>
+
+          {/* 📊 RESULTS DASHBOARD */}
+          {analysisResult && (
+            <div className="space-y-6 animate-fadeIn">
+              
+              {/* Header Info & Severity */}
+              <div className={`p-6 rounded-3xl border shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${
+                analysisResult.severity === 'Critical'
+                  ? 'bg-red-500/10 border-red-500/30 text-red-900 dark:text-red-200'
+                  : analysisResult.severity === 'Attention Needed'
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
+                  : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
+              }`}>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg sm:text-xl font-black">{analysisResult.report_title}</h3>
+                    <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
+                      analysisResult.severity === 'Critical'
+                        ? 'bg-red-500 text-white border-red-600'
+                        : analysisResult.severity === 'Attention Needed'
+                        ? 'bg-amber-500 text-zinc-950 border-amber-600'
+                        : 'bg-emerald-500 text-white border-emerald-600'
+                    }`}>
+                      {analysisResult.severity}
+                    </span>
+                  </div>
+                  <p className="text-xs opacity-90 font-medium">
+                    Patient: <strong>{analysisResult.patient_name}</strong> • Lab: <strong>{analysisResult.lab_name}</strong> • Date: {analysisResult.test_date}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopySummary}
+                    className="px-3.5 py-2 bg-white/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-bold shadow-xs hover:bg-white cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Copy className="w-3.5 h-3.5" /> Copy Summary
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    className="px-3.5 py-2 bg-primary text-white rounded-xl text-xs font-bold shadow-xs hover:bg-primary-dark cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Printer className="w-3.5 h-3.5" /> Print
+                  </button>
+                </div>
+              </div>
+
+              {/* 1. Executive Summary & Detected Conditions */}
+              <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-6 sm:p-7 rounded-3xl shadow-sm space-y-4">
+                <h4 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
+                  <Info className="w-4 h-4 text-primary" /> Executive Clinical Assessment
+                </h4>
+                
+                <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium whitespace-pre-line">
+                  {analysisResult.overall_summary}
+                </p>
+
+                {analysisResult.conditions_detected?.length > 0 && (
+                  <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                    <span className="text-xs font-bold text-zinc-500">Key Clinical Indications:</span>
+                    <div className="flex flex-wrap gap-2 mt-1.5">
+                      {analysisResult.conditions_detected.map((cond, idx) => (
+                        <span key={idx} className="px-3 py-1 bg-primary/10 text-primary font-bold text-xs rounded-xl border border-primary/20">
+                          {cond}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                )
-              })}
+                )}
+              </div>
+
+              {/* 2. Parameters & Biomarkers Table */}
+              {analysisResult.metrics?.length > 0 && (
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-6 sm:p-7 rounded-3xl shadow-sm space-y-4 overflow-hidden">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-emerald-500" /> Extracted Parameters & Measured Reference Values
+                  </h4>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 font-bold uppercase text-[10px]">
+                          <th className="pb-3 px-2">Parameter Name</th>
+                          <th className="pb-3 px-2">Measured Value</th>
+                          <th className="pb-3 px-2">Reference Range</th>
+                          <th className="pb-3 px-2">Status</th>
+                          <th className="pb-3 px-2">Clinical Explanation</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-850">
+                        {analysisResult.metrics.map((m, idx) => {
+                          const isHigh = m.status === 'High' || m.status === 'Critical'
+                          const isLow = m.status === 'Low'
+                          const isNormal = m.status === 'Normal'
+
+                          return (
+                            <tr key={idx} className="hover:bg-zinc-50 dark:hover:bg-zinc-850/50 transition-colors">
+                              <td className="py-3 px-2 font-bold text-zinc-900 dark:text-white">
+                                {m.name}
+                              </td>
+                              <td className="py-3 px-2 font-black text-sm">
+                                <span className={isHigh ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-emerald-500'}>
+                                  {m.value} {m.unit}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 text-zinc-500 dark:text-zinc-400 font-medium">
+                                {m.reference_range} {m.unit}
+                              </td>
+                              <td className="py-3 px-2">
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase ${
+                                  isHigh
+                                    ? 'bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30'
+                                    : isLow
+                                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                                    : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                }`}>
+                                  {isHigh && <TrendingUp className="w-3 h-3" />}
+                                  {isLow && <TrendingDown className="w-3 h-3" />}
+                                  {isNormal && <Check className="w-3 h-3" />}
+                                  {m.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 text-zinc-600 dark:text-zinc-300 font-normal max-w-xs">
+                                {m.explanation}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. 💊 Suggested Medicines Section */}
+              {analysisResult.suggested_medicines?.length > 0 && (
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-6 sm:p-7 rounded-3xl shadow-sm space-y-5">
+                  <div className="flex justify-between items-center flex-wrap gap-2">
+                    <div>
+                      <h4 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
+                        <Pill className="w-4 h-4 text-primary" /> Recommended Standard Medications & Care Plan
+                      </h4>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        Evidence-based pharmacological formulations matching the detected diagnostic biomarkers.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-bold px-2.5 py-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-lg flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" /> Doctor Consultation Mandatory for Rx
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {analysisResult.suggested_medicines.map((med, idx) => (
+                      <div key={idx} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 space-y-3 flex flex-col justify-between">
+                        <div className="space-y-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <h5 className="font-bold text-sm text-zinc-900 dark:text-white">{med.name}</h5>
+                              <p className="text-[11px] text-primary font-semibold">{med.generic_name} • {med.category}</p>
+                            </div>
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-md ${
+                              med.requires_prescription 
+                                ? 'bg-red-500 text-white' 
+                                : 'bg-emerald-600 text-white'
+                            }`}>
+                              {med.requires_prescription ? 'Rx Required' : 'OTC'}
+                            </span>
+                          </div>
+
+                          <div className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200/50 dark:border-zinc-800 text-xs space-y-1">
+                            <p className="text-zinc-500 font-semibold text-[10px] uppercase">Dosage Guideline:</p>
+                            <p className="font-bold text-zinc-900 dark:text-zinc-100">{med.dosage_guideline}</p>
+                          </div>
+
+                          <p className="text-xs text-zinc-600 dark:text-zinc-300">
+                            <strong>Indication:</strong> {med.indication}
+                          </p>
+
+                          {med.precautions && (
+                            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                              ⚠️ <strong>Caution:</strong> {med.precautions}
+                            </p>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setActiveTab('checker')
+                            setCheckerDrugs([med.name, ''])
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                            toast.info(`Checking interactions for ${med.name}`)
+                          }}
+                          className="w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Activity className="w-3.5 h-3.5" /> Check Drug Interactions
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. 🥗 Diet, Lifestyle & Doctor Questions */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                {/* Diet & Nutrition */}
+                {analysisResult.diet_and_lifestyle && (
+                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-6 rounded-3xl shadow-sm space-y-4 text-xs">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
+                      <Apple className="w-4 h-4 text-emerald-500" /> Dietary & Lifestyle Recovery Plan
+                    </h4>
+
+                    {analysisResult.diet_and_lifestyle.foods_to_eat?.length > 0 && (
+                      <div className="space-y-1.5">
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Foods to Eat:
+                        </span>
+                        <ul className="list-disc list-inside space-y-1 text-zinc-600 dark:text-zinc-300">
+                          {analysisResult.diet_and_lifestyle.foods_to_eat.map((f, i) => (
+                            <li key={i}>{f}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {analysisResult.diet_and_lifestyle.foods_to_avoid?.length > 0 && (
+                      <div className="space-y-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                        <span className="font-bold text-red-500 flex items-center gap-1">
+                          <X className="w-3.5 h-3.5" /> Foods to Avoid:
+                        </span>
+                        <ul className="list-disc list-inside space-y-1 text-zinc-600 dark:text-zinc-300">
+                          {analysisResult.diet_and_lifestyle.foods_to_avoid.map((f, i) => (
+                            <li key={i}>{f}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {analysisResult.diet_and_lifestyle.daily_tips?.length > 0 && (
+                      <div className="space-y-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                        <span className="font-bold text-primary flex items-center gap-1">
+                          <Zap className="w-3.5 h-3.5" /> Daily Wellness Tips:
+                        </span>
+                        <ul className="list-disc list-inside space-y-1 text-zinc-600 dark:text-zinc-300">
+                          {analysisResult.diet_and_lifestyle.daily_tips.map((t, i) => (
+                            <li key={i}>{t}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Questions for Doctor */}
+                {analysisResult.questions_for_doctor?.length > 0 && (
+                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-6 rounded-3xl shadow-sm space-y-4 text-xs">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
+                      <HelpCircle className="w-4 h-4 text-indigo-500" /> Smart Questions to Ask Your Doctor
+                    </h4>
+
+                    <p className="text-zinc-500 dark:text-zinc-400 text-xs">
+                      Take these clinical questions to your doctor consultation to discuss your report findings with clarity:
+                    </p>
+
+                    <div className="space-y-2">
+                      {analysisResult.questions_for_doctor.map((q, idx) => (
+                        <div key={idx} className="p-3 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200 font-medium flex items-start gap-2.5">
+                          <span className="w-5 h-5 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5">
+                            {idx + 1}
+                          </span>
+                          <span className="flex-1">{q}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 5. 💬 INTERACTIVE RAG Q&A ON THIS REPORT */}
+              <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-6 sm:p-7 rounded-3xl shadow-sm space-y-5">
+                <div className="flex justify-between items-center pb-3 border-b border-zinc-100 dark:border-zinc-800">
+                  <div>
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
+                      <Bot className="w-4 h-4 text-primary" /> Interactive RAG Assistant: Ask Questions on this Report
+                    </h4>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Chat directly with our clinical AI about any specific metric, safe foods, symptoms, or medication doubts in this report.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Chat History Box */}
+                <div className="space-y-3 max-h-80 overflow-y-auto p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-850 text-xs">
+                  {ragChatHistory.map((msg, i) => (
+                    <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-xl p-3.5 rounded-2xl ${
+                        msg.sender === 'user'
+                          ? 'bg-primary text-white rounded-br-none shadow-sm'
+                          : 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 rounded-bl-none border border-zinc-200/80 dark:border-zinc-800 shadow-xs'
+                      }`}>
+                        <p className="leading-relaxed whitespace-pre-line font-medium">{msg.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {isRagLoading && (
+                    <div className="flex justify-start">
+                      <div className="p-3 bg-white dark:bg-zinc-900 text-primary rounded-2xl rounded-bl-none border border-zinc-200/80 dark:border-zinc-800 flex items-center gap-2">
+                        <Bot className="w-4 h-4 animate-bounce" />
+                        <span className="text-xs font-semibold">Consulting clinical context...</span>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatBottomRef} />
+                </div>
+
+                {/* Chat Input */}
+                <form onSubmit={handleRagChatSubmit} className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Ask anything about your report (e.g. 'Can I drink tea with this sugar level?', 'What causes high ESR?')..."
+                    value={ragQuery}
+                    onChange={(e) => setRagQuery(e.target.value)}
+                    className="flex-1 px-4 py-3 border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 rounded-2xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-zinc-800 dark:text-zinc-200"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isRagLoading || !ragQuery.trim()}
+                    className="bg-primary hover:bg-primary-dark text-white px-5 py-3 rounded-2xl font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+                  >
+                    <Send className="w-4 h-4" /> Ask
+                  </button>
+                </form>
+              </div>
+
             </div>
           )}
+
         </div>
       )}
 
-      {/* 🧪 TAB 2: AI DRUG INTERACTION & SAFETY CHECKER */}
+      {/* 🧪 TAB 2: AI DRUG INTERACTION & SAFETY CHECKER (RETAINED) */}
       {activeTab === 'checker' && (
-        <div className="max-w-3xl mx-auto space-y-6">
+        <div className="max-w-3xl mx-auto space-y-6 animate-fadeIn">
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
             <div className="space-y-2 text-center max-w-lg mx-auto">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto shadow-sm">
@@ -782,7 +1064,7 @@ INSTRUCTIONS:
 
       {/* 📋 TAB 3: DOCTOR CONSULTATION PRESCRIPTIONS */}
       {activeTab === 'prescriptions' && (
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800">
               <div>
@@ -790,7 +1072,7 @@ INSTRUCTIONS:
                   <ClipboardList className="w-5 h-5 text-primary" /> E-Prescriptions from Doctor Consultations
                 </h2>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                  Access digital prescriptions issued by HealthVerse verified doctors and add prescribed medications to cart in 1 click.
+                  Access digital prescriptions issued by HealthVerse verified doctors and analyze them directly with AI.
                 </p>
               </div>
             </div>
@@ -833,16 +1115,15 @@ INSTRUCTIONS:
                             </div>
                             <button
                               onClick={() => {
-                                const matchingMed = medicines.find(m => m.name.toLowerCase().includes(rx.name.toLowerCase()) || rx.name.toLowerCase().includes(m.name.toLowerCase()))
-                                if (matchingMed) {
-                                  addToCart(matchingMed)
-                                } else {
-                                  toast.info(`Added ${rx.name} to pharmacy order list.`)
-                                }
+                                setInputMode('text')
+                                setReportText(`PRESCRIPTION DETAILS:\nDoctor: ${appt.docData?.name}\nDate: ${appt.slotDate}\nMedicine: ${rx.name} (${rx.dosage}, ${rx.frequency}, Duration: ${rx.duration})\nNotes: ${appt.notes || 'Routine consultation'}`)
+                                setActiveTab('report')
+                                window.scrollTo({ top: 0, behavior: 'smooth' })
+                                toast.info(`Loaded ${rx.name} prescription into AI Analyzer`)
                               }}
-                              className="px-2 py-1 bg-primary text-white text-[10px] font-bold rounded-md hover:bg-primary-dark cursor-pointer"
+                              className="px-2.5 py-1 bg-primary text-white text-[10px] font-bold rounded-lg hover:bg-primary-dark cursor-pointer flex items-center gap-1"
                             >
-                              + Add to Cart
+                              <Sparkles className="w-3 h-3" /> Analyze with AI
                             </button>
                           </div>
                         ))}
@@ -852,296 +1133,6 @@ INSTRUCTIONS:
                 ))}
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* 🛒 4. SLIDE-OUT CART & CHECKOUT DRAWER */}
-      {isCartOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 h-full shadow-2xl flex flex-col justify-between overflow-hidden border-l border-zinc-200 dark:border-zinc-800 animate-slideLeft">
-            
-            {/* Cart Header */}
-            <div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-primary" />
-                <h3 className="font-bold text-base text-zinc-900 dark:text-white">Pharmacy Cart ({totalCartCount})</h3>
-              </div>
-              <button 
-                onClick={() => setIsCartOpen(false)}
-                className="p-2 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Cart Items List */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {cart.length === 0 ? (
-                <div className="py-20 text-center space-y-3">
-                  <ShoppingCart className="w-12 h-12 mx-auto text-zinc-300 dark:text-zinc-700 animate-bounce" />
-                  <p className="font-bold text-sm text-zinc-700 dark:text-zinc-300">Your cart is currently empty.</p>
-                  <p className="text-xs text-zinc-400">Browse verified medicines and add items to begin checkout.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {cart.map((item) => (
-                    <div key={item._id} className="p-3.5 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/70 dark:border-zinc-800 flex items-center justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-xs text-zinc-900 dark:text-white truncate">{item.name}</h4>
-                        <p className="text-[10px] text-zinc-400">{item.packSize || 'Strip of 10'} • ₹{item.price} each</p>
-                        <p className="text-xs font-extrabold text-primary mt-1">₹{item.price * item.quantity}</p>
-                      </div>
-
-                      {/* Quantity Modifier */}
-                      <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-2 py-1 text-xs font-bold">
-                        <button 
-                          onClick={() => updateCartQuantity(item._id, -1)}
-                          className="p-1 hover:text-primary cursor-pointer"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span>{item.quantity}</span>
-                        <button 
-                          onClick={() => updateCartQuantity(item._id, 1)}
-                          className="p-1 hover:text-primary cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-
-                      <button
-                        onClick={() => removeFromCart(item._id)}
-                        className="p-1.5 text-zinc-400 hover:text-red-500 cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-
-                  {/* Free Delivery Bar */}
-                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2 font-medium">
-                    <Truck className="w-4 h-4 flex-shrink-0" />
-                    <span>
-                      {subtotalPrice >= 299 
-                        ? '🎉 You unlocked FREE Express Delivery!' 
-                        : `Add ₹${299 - subtotalPrice} more for FREE Express Delivery!`}
-                    </span>
-                  </div>
-
-                  {/* Checkout Form */}
-                  <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 space-y-3">
-                    <h4 className="font-bold text-xs text-zinc-500 uppercase tracking-wider">Delivery Details</h4>
-                    
-                    <div>
-                      <label htmlFor="pharmacy-delivery-address" className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">Delivery Address</label>
-                      <input
-                        id="pharmacy-delivery-address"
-                        name="deliveryAddress"
-                        autoComplete="street-address"
-                        type="text"
-                        placeholder="House/Flat No, Street, City, Pincode"
-                        value={deliveryAddress}
-                        onChange={(e) => setDeliveryAddress(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="pharmacy-delivery-phone" className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">Phone Number</label>
-                      <input
-                        id="pharmacy-delivery-phone"
-                        name="deliveryPhone"
-                        autoComplete="tel"
-                        type="tel"
-                        placeholder="+91 98765 43210"
-                        value={deliveryPhone}
-                        onChange={(e) => setDeliveryPhone(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">Payment Mode</label>
-                      <select
-                        value={paymentMethod}
-                        onChange={(e) => setPaymentMethod(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-primary font-medium"
-                      >
-                        <option value="Cash on Delivery">💵 Cash on Delivery (Pay at doorstep)</option>
-                        <option value="Online UPI / Cards">⚡ Instant UPI / Credit & Debit Cards</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Bill Summary & Order CTA */}
-            {cart.length > 0 && (
-              <div className="p-5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 space-y-3">
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex justify-between text-zinc-500">
-                    <span>Total MRP:</span>
-                    <span className="line-through">₹{totalMrp}</span>
-                  </div>
-                  <div className="flex justify-between text-emerald-500 font-bold">
-                    <span>Discount Savings:</span>
-                    <span>-₹{totalSavings}</span>
-                  </div>
-                  <div className="flex justify-between text-zinc-500">
-                    <span>Express Delivery:</span>
-                    <span>{deliveryFee === 0 ? <strong className="text-emerald-500 font-bold">FREE</strong> : `₹${deliveryFee}`}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-extrabold text-zinc-900 dark:text-white pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                    <span>Final Payable:</span>
-                    <span className="text-primary text-base">₹{finalPayable}</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handlePlaceOrder}
-                  disabled={isPlacingOrder}
-                  className="w-full py-3.5 bg-primary hover:bg-primary-dark text-white rounded-2xl font-bold text-sm shadow-lg shadow-primary/30 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
-                >
-                  {isPlacingOrder ? 'Confirming Order...' : `Place Order (₹${finalPayable})`} <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 📄 5. CLINICAL INFORMATION & SUBSTANCE GUIDE MODAL */}
-      {selectedMedicine && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto text-left relative animate-scaleUp">
-            
-            <button
-              onClick={() => setSelectedMedicine(null)}
-              className="absolute top-5 right-5 p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="flex items-start gap-4">
-              <img 
-                src={selectedMedicine.image || "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=400&auto=format&fit=crop"} 
-                alt={selectedMedicine.name} 
-                className="w-20 h-20 rounded-2xl object-cover border border-zinc-200 dark:border-zinc-800 flex-shrink-0"
-              />
-              <div className="space-y-1">
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-                  {selectedMedicine.category}
-                </span>
-                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">{selectedMedicine.name}</h3>
-                <p className="text-xs text-zinc-500 font-semibold">{selectedMedicine.manufacturer} • {selectedMedicine.packSize}</p>
-                <p className="text-xs font-extrabold text-primary">₹{selectedMedicine.price} <span className="line-through text-zinc-400 font-normal ml-1">₹{selectedMedicine.mrp}</span></p>
-              </div>
-            </div>
-
-            <div className="space-y-3 text-xs leading-relaxed text-zinc-700 dark:text-zinc-300">
-              <div className="p-3 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-800 space-y-1">
-                <span className="font-bold text-zinc-900 dark:text-white">Active Composition & Salt:</span>
-                <p className="text-primary font-semibold">{selectedMedicine.composition || selectedMedicine.genericName}</p>
-              </div>
-
-              <div>
-                <span className="font-bold text-zinc-900 dark:text-white">Clinical Indications & Uses:</span>
-                <p className="mt-0.5">{selectedMedicine.description}</p>
-              </div>
-
-              {selectedMedicine.diseases?.length > 0 && (
-                <div>
-                  <span className="font-bold text-zinc-900 dark:text-white">Treats Conditions:</span>
-                  <div className="flex flex-wrap gap-1.5 mt-1">
-                    {selectedMedicine.diseases.map((d, i) => (
-                      <span key={i} className="px-2.5 py-0.5 bg-primary/10 text-primary rounded-lg text-[10px] font-bold">
-                        {d}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedMedicine.sideEffects?.length > 0 && (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-800 dark:text-amber-300 space-y-1">
-                  <span className="font-bold flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> Possible Side Effects:</span>
-                  <ul className="list-disc list-inside space-y-0.5 text-[11px]">
-                    {selectedMedicine.sideEffects.map((se, i) => (
-                      <li key={i}>{se}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {selectedMedicine.alternatives?.length > 0 && (
-                <div>
-                  <span className="font-bold text-zinc-900 dark:text-white">Equivalent Brand Substitutes:</span>
-                  <div className="flex flex-wrap gap-1.5 mt-1">
-                    {selectedMedicine.alternatives.map((alt, i) => (
-                      <span key={i} className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-[10px] font-semibold text-zinc-600 dark:text-zinc-300">
-                        {alt}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => {
-                addToCart(selectedMedicine)
-                setSelectedMedicine(null)
-              }}
-              className="w-full py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md"
-            >
-              <ShoppingCart className="w-4 h-4" /> Add to Order Cart (₹{selectedMedicine.price})
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 🎉 6. ORDER CONFIRMATION SUCCESS MODAL */}
-      {orderSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-4 text-center animate-scaleUp">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-10 h-10" />
-            </div>
-
-            <h3 className="text-xl font-extrabold text-zinc-900 dark:text-white">Pharmacy Order Confirmed!</h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Your genuine certified medicines have been scheduled for dispatch. Expected delivery within 2 hours.
-            </p>
-
-            <div className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/70 dark:border-zinc-800 text-xs space-y-2 text-left">
-              <div className="flex justify-between">
-                <span className="text-zinc-400">Order ID:</span>
-                <span className="font-bold text-zinc-900 dark:text-white">{orderSuccessModal.orderId}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-400">Items:</span>
-                <span className="font-bold text-zinc-900 dark:text-white">{orderSuccessModal.itemsCount} medicines</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-400">Total Paid:</span>
-                <span className="font-bold text-primary">₹{orderSuccessModal.amount}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-400">Payment:</span>
-                <span className="font-bold text-zinc-900 dark:text-white">{orderSuccessModal.paymentMethod}</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setOrderSuccessModal(null)}
-              className="w-full py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-xs cursor-pointer shadow-md"
-            >
-              Continue Shopping
-            </button>
           </div>
         </div>
       )}

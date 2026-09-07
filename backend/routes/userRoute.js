@@ -1,5 +1,5 @@
 import express from 'express';
-import { registerUser, loginUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, aiSymptomCheck, rescheduleAppointment, rateDoctor, aiChatbot, aiMedicineInfo, aiDietNutrition, aiReportSummary, aiFollowUp } from '../controllers/userController.js';
+import { registerUser, loginUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, aiSymptomCheck, rescheduleAppointment, rateDoctor, aiChatbot, aiMedicineInfo, aiDietNutrition, aiReportSummary, aiReportRagAnalyze, aiReportRagChat, aiFollowUp } from '../controllers/userController.js';
 import authUser from '../middlewares/authUser.js';
 import upload from '../middlewares/multer.js';
 import { validateSchema, registerUserSchema, loginUserSchema, bookAppointmentSchema, rescheduleAppointmentSchema, rateDoctorSchema } from '../middlewares/validation.js';
@@ -20,6 +20,8 @@ userRouter.post("/ai/chatbot", authUser, aiChatbot)
 userRouter.post("/ai/medicine-info", authUser, aiMedicineInfo)
 userRouter.post("/ai/diet-nutrition", authUser, aiDietNutrition)
 userRouter.post("/ai/report-summary", authUser, aiReportSummary)
+userRouter.post("/ai/report-rag-analyze", upload.single('reportFile'), aiReportRagAnalyze)
+userRouter.post("/ai/report-rag-chat", aiReportRagChat)
 userRouter.post("/ai/follow-up", authUser, aiFollowUp)
 userRouter.post("/reschedule-appointment", authUser, validateSchema(rescheduleAppointmentSchema), rescheduleAppointment)
 userRouter.post("/rate-doctor", authUser, validateSchema(rateDoctorSchema), rateDoctor)

@@ -75,7 +75,7 @@ const Navbar = () => {
           <NavLink to='/ai-hub' className={({ isActive }) => isActive ? 'text-primary dark:text-primary font-bold' : 'hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors'}>Clinical Hub</NavLink>
         </li>
         <li>
-          <NavLink to='/pharmacy-shop' className={({ isActive }) => isActive ? 'text-primary dark:text-primary font-bold' : 'hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors'}>Pharmacy</NavLink>
+          <NavLink to='/pharmacy-shop' className={({ isActive }) => isActive ? 'text-primary dark:text-primary font-bold' : 'hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors'}>Report AI</NavLink>
         </li>
         <li>
           <NavLink to='/blood-donation' className={({ isActive }) => isActive ? 'text-primary dark:text-primary font-bold' : 'hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors'}>Blood Bank</NavLink>
@@ -250,8 +250,8 @@ const Navbar = () => {
                     to='/pharmacy-shop' 
                     className={({isActive}) => `px-3.5 py-2.5 rounded-xl flex items-center gap-3 font-medium transition-all ${isActive ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900'}`}
                   >
-                    <Pill className="w-4 h-4 text-emerald-500" />
-                    <span>Online Pharmacy</span>
+                    <FileText className="w-4 h-4 text-emerald-500" />
+                    <span>AI Report Analyzer</span>
                   </NavLink>
 
                   <NavLink 
