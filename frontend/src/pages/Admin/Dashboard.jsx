@@ -549,18 +549,18 @@ const Dashboard = () => {
   )
 
   return (
-    <div className="p-6 space-y-6 w-full text-left">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 w-full text-left max-w-7xl mx-auto">
       {/* Header Selector Tabs */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-zinc-250/60 dark:border-zinc-800 pb-4 gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-zinc-200/80 dark:border-zinc-800 pb-4 gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50 font-sans">Enterprise Hospital Hub</h1>
-          <p className="text-zinc-505 dark:text-zinc-400 text-xs font-normal">Monitor resource allocations, triage logs, and scheduling funnels.</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950 dark:text-zinc-50 font-sans">Enterprise Hospital Hub</h1>
+          <p className="text-zinc-500 dark:text-zinc-400 text-xs font-normal mt-0.5">Monitor resource allocations, triage logs, and clinical scheduling funnels.</p>
         </div>
         {/* Dash Type Selectors */}
-        <div className="flex flex-wrap gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl">
+        <div className="flex items-center gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-x-auto max-w-full scrollbar-none">
           <button 
             onClick={() => setDashboardTab('analytics')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all ${
               dashboardTab === 'analytics' 
                 ? 'bg-white dark:bg-zinc-800 shadow-sm text-zinc-950 dark:text-white' 
                 : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
@@ -570,7 +570,7 @@ const Dashboard = () => {
           </button>
           <button 
             onClick={() => setDashboardTab('hospital')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all ${
               dashboardTab === 'hospital' 
                 ? 'bg-white dark:bg-zinc-800 shadow-sm text-zinc-950 dark:text-white' 
                 : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
@@ -580,7 +580,7 @@ const Dashboard = () => {
           </button>
           <button 
             onClick={() => setDashboardTab('pharmacy')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all ${
               dashboardTab === 'pharmacy' 
                 ? 'bg-white dark:bg-zinc-800 shadow-sm text-zinc-950 dark:text-white' 
                 : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
@@ -590,7 +590,7 @@ const Dashboard = () => {
           </button>
           <button 
             onClick={() => setDashboardTab('blood')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all ${
               dashboardTab === 'blood' 
                 ? 'bg-white dark:bg-zinc-800 shadow-sm text-zinc-950 dark:text-white' 
                 : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
@@ -600,7 +600,7 @@ const Dashboard = () => {
           </button>
           <button 
             onClick={() => setDashboardTab('emergency')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all ${
               dashboardTab === 'emergency' 
                 ? 'bg-white dark:bg-zinc-800 shadow-sm text-zinc-950 dark:text-white' 
                 : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
@@ -610,7 +610,7 @@ const Dashboard = () => {
           </button>
           <button 
             onClick={() => setDashboardTab('enterprise')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all ${
               dashboardTab === 'enterprise' 
                 ? 'bg-white dark:bg-zinc-800 shadow-sm text-zinc-950 dark:text-white' 
                 : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'

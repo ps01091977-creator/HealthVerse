@@ -28,6 +28,7 @@ import { DoctorContext } from './context/DoctorContext'
 // Admin & Doctor Components and Pages
 import AdminNavbar from './components/Admin/AdminNavbar'
 import AdminSidebar from './components/Admin/AdminSidebar'
+import AdminBottomNav from './components/Admin/AdminBottomNav'
 import AdminLogin from './pages/Admin/AdminLogin'
 import Dashboard from './pages/Admin/Dashboard'
 import AllAppointments from './pages/Admin/AllAppointments'
@@ -44,6 +45,12 @@ const App = () => {
   const { token, userData } = useContext(AppContext)
   const { aToken } = useContext(AdminContext)
   const { dToken } = useContext(DoctorContext)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileSidebarOpen(false)
+  }, [location.pathname])
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -120,12 +127,12 @@ const App = () => {
     // Active Admin view
     if (aToken) {
       return (
-        <div className='bg-zinc-50/60 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 min-h-screen transition-colors duration-300'>
+        <div className='bg-zinc-50/60 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 min-h-screen transition-colors duration-300 flex flex-col'>
           <ToastContainer theme={theme === 'dark' ? 'dark' : 'light'} />
-          <AdminNavbar />
-          <div className='flex items-start w-full'>
-            <AdminSidebar />
-            <div className="flex-1 min-w-0">
+          <AdminNavbar onToggleMobileSidebar={() => setMobileSidebarOpen(prev => !prev)} />
+          <div className='flex items-start w-full flex-1'>
+            <AdminSidebar isMobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
+            <main className="flex-1 min-w-0 pb-20 md:pb-8 overflow-x-hidden">
               <Routes>
                 <Route path="/admin-dashboard" element={<Dashboard />} />
                 <Route path="/all-appointments" element={<AllAppointments />} />
@@ -133,8 +140,9 @@ const App = () => {
                 <Route path="/doctor-list" element={<DoctorsList />} />
                 <Route path="*" element={<Navigate to="/admin-dashboard" replace />} />
               </Routes>
-            </div>
+            </main>
           </div>
+          <AdminBottomNav />
         </div>
       )
     }
@@ -142,20 +150,21 @@ const App = () => {
     // Active Doctor view
     if (dToken) {
       return (
-        <div className='bg-zinc-50/60 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 min-h-screen transition-colors duration-300'>
+        <div className='bg-zinc-50/60 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 min-h-screen transition-colors duration-300 flex flex-col'>
           <ToastContainer theme={theme === 'dark' ? 'dark' : 'light'} />
-          <AdminNavbar />
-          <div className='flex items-start w-full'>
-            <AdminSidebar />
-            <div className="flex-1 min-w-0">
+          <AdminNavbar onToggleMobileSidebar={() => setMobileSidebarOpen(prev => !prev)} />
+          <div className='flex items-start w-full flex-1'>
+            <AdminSidebar isMobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
+            <main className="flex-1 min-w-0 pb-20 md:pb-8 overflow-x-hidden">
               <Routes>
                 <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
                 <Route path="/doctor-appointments" element={<DoctorAppointments />} />
                 <Route path="/doctor-profile" element={<DoctorProfile />} />
                 <Route path="*" element={<Navigate to="/doctor-dashboard" replace />} />
               </Routes>
-            </div>
+            </main>
           </div>
+          <AdminBottomNav />
         </div>
       )
     }

@@ -1,10 +1,24 @@
 import React, { useContext, useState } from 'react'
-import { assets } from '../../assets/assets'
 import { toast } from 'react-toastify'
 import axios from 'axios'
 import { AdminContext } from '../../context/AdminContext'
 import { z } from 'zod'
-import { User, Mail, Lock, PlusCircle, Award, Compass, ShieldAlert, DollarSign } from 'lucide-react'
+import { 
+  User, 
+  Mail, 
+  Lock, 
+  PlusCircle, 
+  Award, 
+  Compass, 
+  DollarSign, 
+  MapPin, 
+  FileText, 
+  Upload, 
+  X, 
+  Sparkles, 
+  Check,
+  Stethoscope
+} from 'lucide-react'
 
 // Zod validation schema
 const doctorValidationSchema = z.object({
@@ -14,7 +28,7 @@ const doctorValidationSchema = z.object({
   degree: z.string().min(2, 'Degree description is required'),
   fees: z.string().or(z.number()),
   about: z.string().min(10, 'About details must be at least 10 characters'),
-  address1: z.string().min(2, 'Address 1 is required'),
+  address1: z.string().min(2, 'Address line 1 is required'),
   address2: z.string().optional(),
 })
 
@@ -35,14 +49,23 @@ const AddDoctor = () => {
 
   const { backendUrl, aToken } = useContext(AdminContext)
 
+  const specialities = [
+    'General physician',
+    'Gynecologist',
+    'Dermatologist',
+    'Pediatricians',
+    'Neurologist',
+    'Gastroenterologist',
+  ]
+
   const onSubmitHandler = async (event) => {
-    event.preventDefault();
+    event.preventDefault()
     setErrors({})
     setIsLoading(true)
 
     if (!docImg) {
       setIsLoading(false)
-      return toast.error('Please upload a profile picture');
+      return toast.error('Please upload a profile picture')
     }
 
     // Run Zod validation
@@ -71,25 +94,25 @@ const AddDoctor = () => {
     }
 
     try {
-      const formData = new FormData();
-      formData.append('image', docImg);
-      formData.append('name', name);
-      formData.append('email', email);
-      formData.append('password', password);
-      formData.append('experience', experience);
-      formData.append('fees', Number(fees));
-      formData.append('about', about);
-      formData.append('speciality', speciality);
-      formData.append('degree', degree);
-      formData.append('address', JSON.stringify({ line1: address1, line2: address2 }));
+      const formData = new FormData()
+      formData.append('image', docImg)
+      formData.append('name', name)
+      formData.append('email', email)
+      formData.append('password', password)
+      formData.append('experience', experience)
+      formData.append('fees', Number(fees))
+      formData.append('about', about)
+      formData.append('speciality', speciality)
+      formData.append('degree', degree)
+      formData.append('address', JSON.stringify({ line1: address1, line2: address2 }))
 
       const response = await axios.post(`${backendUrl}/api/admin/add-doctor`, formData, {
-        headers: { aToken }
+        headers: { aToken },
       })
-      const data = response.data;
-      
+      const data = response.data
+
       if (data.success) {
-        toast.success(data.message)
+        toast.success('🎉 Doctor registered successfully!')
         setDocImg(false)
         setName('')
         setPassword('')
@@ -103,216 +126,307 @@ const AddDoctor = () => {
         toast.error(data.message)
       }
     } catch (error) {
-      toast.error(error?.response?.data?.message || error.message);
+      toast.error(error?.response?.data?.message || error.message)
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className='p-6 w-full space-y-6 text-left'>
-      {/* Title */}
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6 text-left">
+      
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">Register New Doctor</h1>
-        <p className="text-zinc-500 dark:text-zinc-400 text-xs">Register new clinical credentials and doctor profiles on the roster.</p>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950 dark:text-white">
+          Onboard New Doctor
+        </h1>
+        <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+          Add clinical credentials, specialization, fee schedules, and create portal access
+        </p>
       </div>
 
-      <form 
-        onSubmit={onSubmitHandler} 
-        className='bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 shadow-sm max-w-4xl space-y-6'
+      <form
+        onSubmit={onSubmitHandler}
+        className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-3xl p-5 sm:p-8 shadow-sm space-y-8"
       >
-        {/* Upload picture */}
-        <div className='flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400'>
-          <label htmlFor="doc-img" className="relative group cursor-pointer block">
-            <img 
-              className='w-16 h-16 rounded-full object-cover border border-zinc-200 dark:border-zinc-850 bg-zinc-50' 
-              src={docImg ? URL.createObjectURL(docImg) : assets.upload_area} 
-              alt="Avatar Upload" 
-            />
-            <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
-              <PlusCircle className="w-4 h-4 text-white" />
-            </div>
+        {/* Photo Upload Area */}
+        <div className="space-y-2">
+          <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            Profile Portrait Photo
           </label>
-          <input onChange={(e) => setDocImg(e.target.files[0])} type="file" id="doc-img" hidden />
-          <div>
-            <p className="font-bold text-zinc-700 dark:text-zinc-300">Upload Doctor Picture</p>
-            <p className="text-[10px] text-zinc-450 mt-0.5">JPEG or PNG, max size 2MB</p>
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 rounded-2xl bg-zinc-50/70 dark:bg-zinc-950/60 border border-dashed border-zinc-300 dark:border-zinc-700">
+            <label
+              htmlFor="doc-img"
+              className="relative group cursor-pointer w-24 h-24 rounded-2xl overflow-hidden border-2 border-primary/30 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 shrink-0"
+            >
+              {docImg ? (
+                <img
+                  src={URL.createObjectURL(docImg)}
+                  alt="Doctor avatar"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-zinc-400 group-hover:text-primary transition-colors">
+                  <Upload className="w-6 h-6 mb-1" />
+                  <span className="text-[10px] font-bold">Upload</span>
+                </div>
+              )}
+              <div className="absolute inset-0 bg-primary/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                <PlusCircle className="w-6 h-6" />
+              </div>
+            </label>
+            <input
+              type="file"
+              id="doc-img"
+              accept="image/*"
+              hidden
+              onChange={(e) => setDocImg(e.target.files[0])}
+            />
+
+            <div className="flex-1 text-center sm:text-left space-y-1">
+              <p className="text-xs font-bold text-zinc-900 dark:text-white">
+                {docImg ? docImg.name : 'Select high-resolution photo'}
+              </p>
+              <p className="text-[11px] text-zinc-400">
+                Supports PNG, JPG or WebP up to 5MB. A crisp doctor headshot is recommended.
+              </p>
+              {docImg && (
+                <button
+                  type="button"
+                  onClick={() => setDocImg(false)}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-red-500 hover:underline pt-1"
+                >
+                  <X className="w-3 h-3" /> Remove Photo
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Info Grid */}
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-6 text-xs'>
+        {/* 2-Column Responsive Form Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 text-xs">
           
-          {/* Left Column */}
-          <div className='space-y-4'>
-            <div className='space-y-1.5'>
-              <label className="font-semibold text-zinc-600 dark:text-zinc-400">Doctor Full Name</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <input 
-                  onChange={e => setName(e.target.value)} 
-                  value={name} 
-                  className={`w-full pl-9 pr-4 py-2 border rounded-xl bg-white dark:bg-zinc-950 focus:outline-none focus:ring-1 focus:ring-primary dark:text-zinc-100 ${
-                    errors.name ? 'border-red-500' : 'border-zinc-250 dark:border-zinc-800'
-                  }`} 
-                  type="text" 
-                  placeholder='Dr. John Smith' 
-                />
-              </div>
-              {errors.name && <p className="text-[10px] text-red-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> {errors.name}</p>}
+          {/* Full Name */}
+          <div className="space-y-1.5">
+            <label className="font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Doctor Full Name <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Dr. Richard James"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className={`w-full pl-10 pr-4 py-2.5 bg-zinc-50/70 dark:bg-zinc-950/70 border rounded-xl text-xs font-medium text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                  errors.name ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-800'
+                }`}
+              />
             </div>
+            {errors.name && <p className="text-[10px] text-red-500">{errors.name}</p>}
+          </div>
 
-            <div className='space-y-1.5'>
-              <label className="font-semibold text-zinc-600 dark:text-zinc-400">Doctor Email Address</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <input 
-                  onChange={e => setEmail(e.target.value)} 
-                  value={email} 
-                  className={`w-full pl-9 pr-4 py-2 border rounded-xl bg-white dark:bg-zinc-950 focus:outline-none focus:ring-1 focus:ring-primary dark:text-zinc-100 ${
-                    errors.email ? 'border-red-500' : 'border-zinc-250 dark:border-zinc-800'
-                  }`} 
-                  type="email" 
-                  placeholder='example@healthverse.ai' 
-                />
-              </div>
-              {errors.email && <p className="text-[10px] text-red-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> {errors.email}</p>}
+          {/* Email Address */}
+          <div className="space-y-1.5">
+            <label className="font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Doctor Portal Email <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="email"
+                placeholder="richard.james@healthverse.ai"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className={`w-full pl-10 pr-4 py-2.5 bg-zinc-50/70 dark:bg-zinc-950/70 border rounded-xl text-xs font-medium text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                  errors.email ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-800'
+                }`}
+              />
             </div>
+            {errors.email && <p className="text-[10px] text-red-500">{errors.email}</p>}
+          </div>
 
-            <div className='space-y-1.5'>
-              <label className="font-semibold text-zinc-600 dark:text-zinc-400">Set Profile Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <input 
-                  onChange={e => setPassword(e.target.value)} 
-                  value={password} 
-                  className={`w-full pl-9 pr-4 py-2 border rounded-xl bg-white dark:bg-zinc-950 focus:outline-none focus:ring-1 focus:ring-primary dark:text-zinc-100 ${
-                    errors.password ? 'border-red-500' : 'border-zinc-250 dark:border-zinc-800'
-                  }`} 
-                  type="password" 
-                  placeholder='••••••••' 
-                />
-              </div>
-              {errors.password && <p className="text-[10px] text-red-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> {errors.password}</p>}
+          {/* Password */}
+          <div className="space-y-1.5">
+            <label className="font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Initial Portal Password <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="password"
+                placeholder="••••••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className={`w-full pl-10 pr-4 py-2.5 bg-zinc-50/70 dark:bg-zinc-950/70 border rounded-xl text-xs font-medium text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                  errors.password ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-800'
+                }`}
+              />
             </div>
+            {errors.password && <p className="text-[10px] text-red-500">{errors.password}</p>}
+          </div>
 
-            <div className='space-y-1.5'>
-              <label className="font-semibold text-zinc-600 dark:text-zinc-400">Years of Experience</label>
-              <select 
-                onChange={e => setExperience(e.target.value)} 
-                value={experience} 
-                className='w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary text-zinc-800 dark:text-zinc-200'
+          {/* Specialty */}
+          <div className="space-y-1.5">
+            <label className="font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Clinical Speciality
+            </label>
+            <div className="relative">
+              <Stethoscope className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <select
+                value={speciality}
+                onChange={(e) => setSpeciality(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-zinc-50/70 dark:bg-zinc-950/70 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
-                <option value="1 Year">1 Year</option>
-                <option value="2 Years">2 Years</option>
-                <option value="3 Years">3 Years</option>
-                <option value="5 Years">5 Years</option>
-                <option value="8 Years">8 Years</option>
-                <option value="10+ Years">10+ Years</option>
+                {specialities.map((spec) => (
+                  <option key={spec} value={spec} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                    {spec}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
 
-          {/* Right Column */}
-          <div className='space-y-4'>
-            <div className='space-y-1.5'>
-              <label className="font-semibold text-zinc-600 dark:text-zinc-400">Clinical Specialty</label>
-              <select 
-                onChange={e => setSpeciality(e.target.value)} 
-                value={speciality} 
-                className='w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary text-zinc-800 dark:text-zinc-200'
+          {/* Degree & Qualifications */}
+          <div className="space-y-1.5">
+            <label className="font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Degree & Credentials <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Award className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="MBBS, MD - Cardiology"
+                value={degree}
+                onChange={(e) => setDegree(e.target.value)}
+                required
+                className={`w-full pl-10 pr-4 py-2.5 bg-zinc-50/70 dark:bg-zinc-950/70 border rounded-xl text-xs font-medium text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                  errors.degree ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-800'
+                }`}
+              />
+            </div>
+            {errors.degree && <p className="text-[10px] text-red-500">{errors.degree}</p>}
+          </div>
+
+          {/* Experience */}
+          <div className="space-y-1.5">
+            <label className="font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Clinical Experience
+            </label>
+            <div className="relative">
+              <Compass className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <select
+                value={experience}
+                onChange={(e) => setExperience(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-zinc-50/70 dark:bg-zinc-950/70 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
-                <option value="General physician">General physician</option>
-                <option value="Gynecologist">Gynecologist</option>
-                <option value="Dermatologist">Dermatologist</option>
-                <option value="Pediatricians">Pediatricians</option>
-                <option value="Neurologist">Neurologist</option>
-                <option value="Gastroenterologist">Gastroenterologist</option>
+                {['1 Year', '2 Years', '3 Years', '4 Years', '5 Years', '6 Years', '8 Years', '10+ Years'].map((yr) => (
+                  <option key={yr} value={yr} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                    {yr}
+                  </option>
+                ))}
               </select>
             </div>
+          </div>
 
-            <div className='space-y-1.5'>
-              <label className="font-semibold text-zinc-600 dark:text-zinc-400">Consultation Fee (INR)</label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <input 
-                  onChange={e => setFees(e.target.value)} 
-                  value={fees} 
-                  className={`w-full pl-9 pr-4 py-2 border rounded-xl bg-white dark:bg-zinc-950 focus:outline-none focus:ring-1 focus:ring-primary dark:text-zinc-100 ${
-                    errors.fees ? 'border-red-500' : 'border-zinc-250 dark:border-zinc-800'
-                  }`} 
-                  type="number" 
-                  placeholder='500' 
-                />
-              </div>
-              {errors.fees && <p className="text-[10px] text-red-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> {errors.fees}</p>}
+          {/* Fees */}
+          <div className="space-y-1.5">
+            <label className="font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Consultation Fee (₹) <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="number"
+                placeholder="500"
+                value={fees}
+                onChange={(e) => setFees(e.target.value)}
+                required
+                className={`w-full pl-10 pr-4 py-2.5 bg-zinc-50/70 dark:bg-zinc-950/70 border rounded-xl text-xs font-medium text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                  errors.fees ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-800'
+                }`}
+              />
             </div>
+            {errors.fees && <p className="text-[10px] text-red-500">{errors.fees}</p>}
+          </div>
 
-            <div className='space-y-1.5'>
-              <label className="font-semibold text-zinc-600 dark:text-zinc-400">Doctor Degree / Certification</label>
-              <div className="relative">
-                <Award className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <input 
-                  onChange={e => setDegree(e.target.value)} 
-                  value={degree} 
-                  className={`w-full pl-9 pr-4 py-2 border rounded-xl bg-white dark:bg-zinc-950 focus:outline-none focus:ring-1 focus:ring-primary dark:text-zinc-100 ${
-                    errors.degree ? 'border-red-500' : 'border-zinc-250 dark:border-zinc-800'
-                  }`} 
-                  type="text" 
-                  placeholder='MBBS, MD Cardiology' 
-                />
-              </div>
-              {errors.degree && <p className="text-[10px] text-red-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> {errors.degree}</p>}
+          {/* Address Line 1 */}
+          <div className="space-y-1.5">
+            <label className="font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Clinic Address Line 1 <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Suite 402, Medical Enclave"
+                value={address1}
+                onChange={(e) => setAddress1(e.target.value)}
+                required
+                className={`w-full pl-10 pr-4 py-2.5 bg-zinc-50/70 dark:bg-zinc-950/70 border rounded-xl text-xs font-medium text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                  errors.address1 ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-800'
+                }`}
+              />
             </div>
+            {errors.address1 && <p className="text-[10px] text-red-500">{errors.address1}</p>}
+          </div>
 
-            <div className='space-y-1.5'>
-              <label className="font-semibold text-zinc-600 dark:text-zinc-400">Doctor Clinic Address</label>
-              <div className="space-y-2">
-                <input 
-                  onChange={e => setAddress1(e.target.value)} 
-                  value={address1} 
-                  className={`w-full px-3 py-2 border rounded-xl bg-white dark:bg-zinc-950 focus:outline-none focus:ring-1 focus:ring-primary dark:text-zinc-100 ${
-                    errors.address1 ? 'border-red-500' : 'border-zinc-250 dark:border-zinc-800'
-                  }`} 
-                  type="text" 
-                  placeholder='Line 1: Clinic No, Street' 
-                />
-                <input 
-                  onChange={e => setAddress2(e.target.value)} 
-                  value={address2} 
-                  className='w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 focus:outline-none focus:ring-1 focus:ring-primary dark:text-zinc-100' 
-                  type="text" 
-                  placeholder='Line 2: Area, City' 
-                />
-              </div>
-              {errors.address1 && <p className="text-[10px] text-red-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> {errors.address1}</p>}
+          {/* Address Line 2 */}
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Clinic Address Line 2 (Optional)
+            </label>
+            <div className="relative">
+              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Indiranagar, Bangalore, Karnataka"
+                value={address2}
+                onChange={(e) => setAddress2(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-zinc-50/70 dark:bg-zinc-950/70 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
             </div>
+          </div>
+
+          {/* About Doctor */}
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Doctor Professional Biography <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <textarea
+                rows={4}
+                placeholder="Dr. Richard James has over 10+ years of clinical experience in preventative internal medicine..."
+                value={about}
+                onChange={(e) => setAbout(e.target.value)}
+                required
+                className={`w-full p-3 bg-zinc-50/70 dark:bg-zinc-950/70 border rounded-xl text-xs font-medium text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                  errors.about ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-800'
+                }`}
+              />
+            </div>
+            {errors.about && <p className="text-[10px] text-red-500">{errors.about}</p>}
           </div>
         </div>
 
-        {/* About */}
-        <div className="space-y-1.5 text-xs">
-          <label className="font-semibold text-zinc-600 dark:text-zinc-400">About Doctor / Professional Bio</label>
-          <textarea 
-            onChange={e => setAbout(e.target.value)} 
-            value={about} 
-            className={`w-full p-3 border rounded-xl bg-white dark:bg-zinc-950 focus:outline-none focus:ring-1 focus:ring-primary dark:text-zinc-100 ${
-              errors.about ? 'border-red-500' : 'border-zinc-250 dark:border-zinc-800'
-            }`} 
-            rows={4} 
-            placeholder='Write detailed description of the doctor experience, specializations, etc.'
-          />
-          {errors.about && <p className="text-[10px] text-red-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> {errors.about}</p>}
-        </div>
-
-        {/* Submit */}
-        <div className="pt-2">
-          <button 
-            type='submit' 
+        {/* Action Button */}
+        <div className="pt-2 flex justify-end">
+          <button
+            type="submit"
             disabled={isLoading}
-            className='inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-50 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs px-8 py-3 rounded-xl font-bold transition-all shadow-sm active:scale-98 disabled:opacity-50 cursor-pointer'
+            className="w-full sm:w-auto px-8 py-3.5 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl shadow-md shadow-primary/25 hover:shadow-lg transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Registering...' : 'Register Doctor Profile'}
+            {isLoading ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                <span>Register & Activate Doctor</span>
+              </>
+            )}
           </button>
         </div>
       </form>
